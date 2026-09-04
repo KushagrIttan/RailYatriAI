@@ -16,6 +16,16 @@ interface ScheduledBlock {
   status: string
   shadow_block_group: string | null
   conflict_reason: string | null
+  // Approval workflow state (in-memory for prototype)
+  approvalStatus?: 'Pending' | 'Approved' | 'Rejected'
+  rejectionReason?: string
+}
+
+interface ApprovalState {
+  [blockId: string]: {
+    status: 'Pending' | 'Approved' | 'Rejected'
+    rejectionReason?: string
+  }
 }
 
 interface OptimizationResult {
@@ -48,6 +58,10 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [selectedDept, setSelectedDept] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'timeline' | 'list'>('timeline')
+  // Approval workflow state (in-memory for prototype)
+  const [approvalState, setApprovalState] = useState<ApprovalState>({})
+  const [rejectingBlock, setRejectingBlock] = useState<string | null>(null)
+  const [rejectionReason, setRejectionReason] = useState<string>('')
 
   const generateSchedule = async () => {
     setLoading(true)
@@ -57,11 +71,34 @@ function App() {
       if (!response.ok) throw new Error('Failed to generate schedule')
       const data = await response.json()
       setSchedule(data)
+      // Reset approval state when generating new schedule
+      setApprovalState({})
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Approval workflow handlers (in-memory for prototype)
+  const handleApprove = (blockId: string) => {
+    setApprovalState(prev => ({
+      ...prev,
+      [blockId]: { status: 'Approved' }
+    }))
+  }
+
+  const handleReject = (blockId: string, reason: string) => {
+    if (!reason.trim()) {
+      alert('Rejection reason is required')
+      return
+    }
+    setApprovalState(prev => ({
+      ...prev,
+      [blockId]: { status: 'Rejected', rejectionReason: reason }
+    }))
+    setRejectingBlock(null)
+    setRejectionReason('')
   }
 
   const filteredSchedule = schedule?.schedule.filter(block => 
@@ -101,13 +138,23 @@ function App() {
               <p className="text-xs text-slate-400">Intelligent Block Planning System</p>
             </div>
           </div>
-          <button
-            onClick={generateSchedule}
-            disabled={loading}
-            className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-all"
-          >
-            {loading ? 'Optimizing...' : '🚀 Generate Optimized Plan'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={generateSchedule}
+              disabled={loading}
+              className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-all"
+            >
+              {loading ? 'Optimizing...' : '🚀 Generate Plan'}
+            </button>
+            <button
+              onClick={() => { setViewMode('list'); generateSchedule(); }}
+              disabled={loading}
+              className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm hover:bg-slate-700 disabled:opacity-50 transition-all"
+              title="Generate and show list view for approval workflow demo"
+            >
+              ⚡ Demo Mode
+            </button>
+          </div>
         </div>
       </header>
 
@@ -234,43 +281,117 @@ function App() {
                   <th className="text-left p-3 text-xs font-medium text-slate-400">Start</th>
                   <th className="text-left p-3 text-xs font-medium text-slate-400">Duration</th>
                   <th className="text-left p-3 text-xs font-medium text-slate-400">Status</th>
+                  <th className="text-left p-3 text-xs font-medium text-slate-400">Approval</th>
+                  <th className="text-left p-3 text-xs font-medium text-slate-400">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {filteredSchedule.map(block => (
-                  <tr key={block.block_id} className="hover:bg-slate-800/50">
-                    <td className="p-3 text-sm font-mono">{block.task_id}</td>
-                    <td className="p-3 text-sm" style={{ color: DEPT_COLORS[block.department] }}>
-                      {block.department}
-                    </td>
-                    <td className="p-3">
-                      <span className="px-2 py-1 rounded text-xs" style={{ 
-                        backgroundColor: PRIORITY_COLORS[block.priority] + '20',
-                        color: PRIORITY_COLORS[block.priority]
-                      }}>
-                        {block.priority}
-                      </span>
-                    </td>
-                    <td className="p-3 text-sm text-slate-400">
-                      {block.status !== 'Deferred' 
-                        ? new Date(block.scheduled_start).toLocaleString('en-IN', { 
-                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
-                          })
-                        : '-'
-                      }
-                    </td>
-                    <td className="p-3 text-sm">{block.duration_minutes}m</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        block.status === 'Scheduled' ? 'bg-emerald-500/20 text-emerald-400' :
-                        block.status === 'Shadow Block' ? 'bg-violet-500/20 text-violet-400' :
-                        'bg-red-500/20 text-red-400'
-                      }`}>
-                        {block.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {filteredSchedule.map(block => {
+                  const approval = approvalState[block.block_id]
+                  const isRejecting = rejectingBlock === block.block_id
+                  
+                  return (
+                    <tr key={block.block_id} className="hover:bg-slate-800/50">
+                      <td className="p-3 text-sm font-mono">{block.task_id}</td>
+                      <td className="p-3 text-sm" style={{ color: DEPT_COLORS[block.department] }}>
+                        {block.department}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className="px-2 py-1 rounded text-xs pointer-events-none"
+                          style={{ backgroundColor: PRIORITY_COLORS[block.priority] + '20', color: PRIORITY_COLORS[block.priority], whiteSpace: 'nowrap' }}
+                          title={`Department: ${block.department}, Priority: ${block.priority}`}
+                        >
+                          {block.priority}
+                        </span>
+                      </td>
+                      <td className="p-3 text-sm text-slate-400">
+                        {block.status !== 'Deferred' 
+                          ? new Date(block.scheduled_start).toLocaleString('en-IN', { 
+                              month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+                            })
+                          : '-'
+                        }
+                      </td>
+                      <td className="p-3 text-sm">{block.duration_minutes}m</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          block.status === 'Scheduled' ? 'bg-emerald-500/20 text-emerald-400' :
+                          block.status === 'Shadow Block' ? 'bg-violet-500/20 text-violet-400' :
+                          'bg-red-500/20 text-red-400'
+                        }`}>
+                          {block.status}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        {approval?.status === 'Approved' ? (
+                          <span className="px-2 py-1 rounded text-xs bg-emerald-500/20 text-emerald-400">
+                            ✓ Approved
+                          </span>
+                        ) : approval?.status === 'Rejected' ? (
+                          <div className="text-xs">
+                            <span className="px-2 py-1 rounded bg-red-500/20 text-red-400">✗ Rejected</span>
+                            <div className="text-red-300 mt-1 text-[10px] max-w-[150px] truncate" title={approval.rejectionReason}>
+                              Reason: {approval.rejectionReason}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="px-2 py-1 rounded text-xs bg-slate-700 text-slate-400">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        {block.status === 'Deferred' ? (
+                          <span className="text-xs text-slate-500">N/A (Deferred)</span>
+                        ) : approval?.status ? (
+                          <span className="text-xs text-slate-500">Completed</span>
+                        ) : isRejecting ? (
+                          <div className="flex flex-col gap-2">
+                            <input
+                              type="text"
+                              placeholder="Enter rejection reason..."
+                              value={rejectionReason}
+                              onChange={(e) => setRejectionReason(e.target.value)}
+                              className="w-48 px-2 py-1 text-xs bg-slate-800 border border-slate-600 rounded focus:outline-none focus:border-red-500"
+                              autoFocus
+                            />
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleReject(block.block_id, rejectionReason)}
+                                disabled={!rejectionReason.trim()}
+                                className="px-2 py-1 text-xs bg-red-600 hover:bg-red-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Confirm Reject
+                              </button>
+                              <button
+                                onClick={() => { setRejectingBlock(null); setRejectionReason('') }}
+                                className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleApprove(block.block_id)}
+                              className="px-2 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 rounded"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => setRejectingBlock(block.block_id)}
+                              className="px-2 py-1 text-xs bg-red-600 hover:bg-red-500 rounded"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

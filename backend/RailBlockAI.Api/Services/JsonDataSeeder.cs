@@ -62,7 +62,12 @@ public class JsonDataSeeder : IDataSeeder
     {
         if (!File.Exists(filePath)) return default;
         var json = await File.ReadAllTextAsync(filePath);
-        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+        };
+        return JsonSerializer.Deserialize<T>(json, options);
     }
 }
 

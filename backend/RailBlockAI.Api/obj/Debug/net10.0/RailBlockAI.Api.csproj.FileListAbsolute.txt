@@ -34,3 +34,4 @@ C:\Users\Kushagr\RailBlockAI\backend\RailBlockAI.Api\obj\Debug\net10.0\refint\Ra
 C:\Users\Kushagr\RailBlockAI\backend\RailBlockAI.Api\obj\Debug\net10.0\RailBlockAI.Api.pdb
 C:\Users\Kushagr\RailBlockAI\backend\RailBlockAI.Api\obj\Debug\net10.0\RailBlockAI.Api.genruntimeconfig.cache
 C:\Users\Kushagr\RailBlockAI\backend\RailBlockAI.Api\obj\Debug\net10.0\ref\RailBlockAI.Api.dll
+C:\Users\Kushagr\RailBlockAI\backend\RailBlockAI.Api\obj\Debug\net10.0\RailBlockAI.Api.sourcelink.json

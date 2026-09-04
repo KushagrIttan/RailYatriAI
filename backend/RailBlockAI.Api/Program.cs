@@ -6,7 +6,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(); // Using Swagger for easier testing
+builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient(); // Required for OptimizationController to call Python API
 builder.Services.AddScoped<IDataSeeder, JsonDataSeeder>();
 
 var app = builder.Build();

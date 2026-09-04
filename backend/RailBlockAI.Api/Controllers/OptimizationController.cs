@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using RailBlockAI.Api.Models;
 using RailBlockAI.Api.Services;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace RailBlockAI.Api.Controllers;
 
@@ -70,7 +72,12 @@ public class OptimizationController : ControllerBase
                 return StatusCode((int)response.StatusCode, errorContent);
             }
 
-            var result = await response.Content.ReadFromJsonAsync<OptimizationResult>();
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            };
+            var result = await response.Content.ReadFromJsonAsync<OptimizationResult>(jsonOptions);
 
             if (result == null) return BadRequest("Failed to parse optimization result.");
 
@@ -89,10 +96,7 @@ public class OptimizationController : ControllerBase
     [HttpGet("current")]
     public IActionResult GetCurrentSchedule()
     {
-        if (DataStore.LastOptimizedSchedule == null)
-            return NotFound("No optimized schedule has been generated yet.");
-            
-        return Ok(DataStore.LastOptimizedSchedule);
+        return Ok(DataStore.LastOptimizedSchedule ?? new { message = "No schedule found" });
     }
 }
 
