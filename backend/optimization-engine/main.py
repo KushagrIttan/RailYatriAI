@@ -4,14 +4,25 @@ The "Brain" that schedules maintenance tasks into corridor windows.
 """
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, timedelta
 import json
+import os
 from enum import Enum
 from collections import defaultdict
 
 app = FastAPI(title="RailBlock AI - Optimization Engine")
+
+# CORS — allow frontend dev server
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:4173", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ============= DATA MODELS =============
 
@@ -249,7 +260,64 @@ async def optimize_schedule(request: OptimizationRequest):
     return engine.optimize()
 
 @app.get("/health")
-async def health(): return {"status": "healthy"}
+async def health(): return {"status": "healthy", "engine": "Greedy-Shadow V2"}
+
+@app.get("/test-optimize", response_model=OptimizationResult)
+async def test_optimize():
+    """Quick self-test using built-in sample data."""
+    sample_tasks = [
+        MaintenanceTask(
+            task_id="TSK-TEST-001", department="Engineering", task_type="Preventive Maintenance",
+            description="Test rail grinding task", track_section="NDLS-GZB-UP",
+            location_km="KM 5.0/0-5.5/0", duration_minutes=45,
+            priority="Critical", criticality_score=0.9,
+            requested_by="ENG/SSE-1", requested_date=datetime.now()
+        ),
+        MaintenanceTask(
+            task_id="TSK-TEST-002", department="Signal & Telecommunication", task_type="Inspection",
+            description="Test signal inspection", track_section="NDLS-GZB-UP",
+            location_km="KM 5.5/0-6.0/0", duration_minutes=30,
+            priority="High", criticality_score=0.8,
+            requested_by="S&T/JE-1", requested_date=datetime.now()
+        ),
+        MaintenanceTask(
+            task_id="TSK-TEST-003", department="Traction Distribution", task_type="Preventive Maintenance",
+            description="Test OHE maintenance", track_section="NDLS-GZB-UP",
+            location_km="KM 6.0/0-6.5/0", duration_minutes=60,
+            priority="Medium", criticality_score=0.7,
+            requested_by="TRA/JE-1", requested_date=datetime.now()
+        ),
+    ]
+    sample_windows = [
+        CorridorWindow(
+            window_id="WIN-TEST-001", track_section="NDLS-GZB-UP",
+            available_start=datetime.now().replace(hour=22, minute=0, second=0),
+            available_end=datetime.now().replace(hour=23, minute=59, second=0) + timedelta(hours=5),
+            duration_minutes=420, window_type="Night Block", constraints=[]
+        ),
+    ]
+    engine = SchedulingEngine(sample_tasks, sample_windows)
+    return engine.optimize()
+
+@app.get("/data-optimize", response_model=OptimizationResult)
+async def data_optimize():
+    """Run optimization on the project's data/*.json files directly (no .NET bridge needed)."""
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    data_dir = os.path.abspath(data_dir)
+    
+    try:
+        with open(os.path.join(data_dir, "maintenance_tasks.json"), "r") as f:
+            raw_tasks = json.load(f)
+        with open(os.path.join(data_dir, "corridor_windows.json"), "r") as f:
+            raw_windows = json.load(f)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=f"Data file not found: {e}")
+    
+    tasks = [MaintenanceTask(**t) for t in raw_tasks]
+    windows = [CorridorWindow(**w) for w in raw_windows]
+    
+    engine = SchedulingEngine(tasks, windows)
+    return engine.optimize()
 
 if __name__ == "__main__":
     import uvicorn

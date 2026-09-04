@@ -10,6 +10,21 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient(); // Required for OptimizationController to call Python API
 builder.Services.AddScoped<IDataSeeder, JsonDataSeeder>();
 
+// CORS — allow the frontend dev server and preview builds
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:5173",  // Vite dev
+                "http://localhost:4173",  // Vite preview
+                "http://localhost:3000"   // Alternate dev port
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -19,7 +34,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// CORS must come before routing/auth
+app.UseCors();
 
 app.UseAuthorization();
 
