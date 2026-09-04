@@ -1,0 +1,252 @@
+[
+  {
+    "defect_id": "DEF-TRA-0001",
+    "task_id": "TSK-TRA-0001",
+    "department": "Traction Distribution",
+    "severity": "Critical",
+    "description": "OHE contact wire burn mark",
+    "location_km": "KM 12.9/9-13.3/3",
+    "reported_date": "2026-09-04T00:00:00",
+    "age_days": 4
+  },
+  {
+    "defect_id": "DEF-TRA-0002",
+    "task_id": "TSK-TRA-0002",
+    "department": "Traction Distribution",
+    "severity": "Critical",
+    "description": "Insulator flashover damage",
+    "location_km": "KM 1.7/7-2.0/0",
+    "reported_date": "2026-06-24T00:00:00",
+    "age_days": 76
+  },
+  {
+    "defect_id": "DEF-TRA-0003",
+    "task_id": "TSK-TRA-0003",
+    "department": "Traction Distribution",
+    "severity": "Critical",
+    "description": "Feeder cable heating",
+    "location_km": "KM 13.7/6-15.1/0",
+    "reported_date": "2026-06-28T00:00:00",
+    "age_days": 72
+  },
+  {
+    "defect_id": "DEF-ENG-0004",
+    "task_id": "TSK-ENG-0004",
+    "department": "Engineering",
+    "severity": "Low",
+    "description": "Track geometry deviation detected",
+    "location_km": "KM 42.7/7-42.8/7",
+    "reported_date": "2026-06-24T00:00:00",
+    "age_days": 76
+  },
+  {
+    "defect_id": "DEF-TRA-0005",
+    "task_id": "TSK-TRA-0005",
+    "department": "Traction Distribution",
+    "severity": "Low",
+    "description": "Dropper wire broken",
+    "location_km": "KM 8.2/1-10.1/0",
+    "reported_date": "2026-07-26T00:00:00",
+    "age_days": 44
+  },
+  {
+    "defect_id": "DEF-ENG-0006",
+    "task_id": "TSK-ENG-0006",
+    "department": "Engineering",
+    "severity": "Critical",
+    "description": "Broken fishplate on joint",
+    "location_km": "KM 6.9/9-7.7/7",
+    "reported_date": "2026-07-21T00:00:00",
+    "age_days": 49
+  },
+  {
+    "defect_id": "DEF-ENG-0007",
+    "task_id": "TSK-ENG-0007",
+    "department": "Engineering",
+    "severity": "Low",
+    "description": "Broken fishplate on joint",
+    "location_km": "KM 18.7/6-19.5/5",
+    "reported_date": "2026-07-01T00:00:00",
+    "age_days": 69
+  },
+  {
+    "defect_id": "DEF-TRA-0008",
+    "task_id": "TSK-TRA-0008",
+    "department": "Traction Distribution",
+    "severity": "Medium",
+    "description": "Insulator flashover damage",
+    "location_km": "KM 13.5/5-13.7/6",
+    "reported_date": "2026-06-26T00:00:00",
+    "age_days": 74
+  },
+  {
+    "defect_id": "DEF-SIG-0009",
+    "task_id": "TSK-SIG-0009",
+    "department": "Signal & Telecommunication",
+    "severity": "Critical",
+    "description": "Track circuit count mismatch",
+    "location_km": "KM 7.3/2-8.3/3",
+    "reported_date": "2026-08-09T00:00:00",
+    "age_days": 30
+  },
+  {
+    "defect_id": "DEF-ENG-0010",
+    "task_id": "TSK-ENG-0010",
+    "department": "Engineering",
+    "severity": "Medium",
+    "description": "Rail wear exceeding permissible limits",
+    "location_km": "KM 12.9/9-14.3/3",
+    "reported_date": "2026-07-24T00:00:00",
+    "age_days": 46
+  },
+  {
+    "defect_id": "DEF-TRA-0011",
+    "task_id": "TSK-TRA-0011",
+    "department": "Traction Distribution",
+    "severity": "High",
+    "description": "Insulator flashover damage",
+    "location_km": "KM 3.1/1-3.9/9",
+    "reported_date": "2026-07-01T00:00:00",
+    "age_days": 69
+  },
+  {
+    "defect_id": "DEF-TRA-0012",
+    "task_id": "TSK-TRA-0012",
+    "department": "Traction Distribution",
+    "severity": "Medium",
+    "description": "Feeder cable heating",
+    "location_km": "KM 15.8/8-17.4/3",
+    "reported_date": "2026-08-31T00:00:00",
+    "age_days": 8
+  },
+  {
+    "defect_id": "DEF-SIG-0013",
+    "task_id": "TSK-SIG-0013",
+    "department": "Signal & Telecommunication",
+    "severity": "Critical",
+    "description": "Cable insulation damage",
+    "location_km": "KM 11.2/1-12.2/1",
+    "reported_date": "2026-08-11T00:00:00",
+    "age_days": 28
+  },
+  {
+    "defect_id": "DEF-ENG-0014",
+    "task_id": "TSK-ENG-0014",
+    "department": "Engineering",
+    "severity": "Medium",
+    "description": "Ballast shoulder erosion",
+    "location_km": "KM 14.3/3-15.4/4",
+    "reported_date": "2026-08-21T00:00:00",
+    "age_days": 18
+  },
+  {
+    "defect_id": "DEF-TRA-0015",
+    "task_id": "TSK-TRA-0015",
+    "department": "Traction Distribution",
+    "severity": "Low",
+    "description": "Feeder cable heating",
+    "location_km": "KM 19.1/1-19.5/5",
+    "reported_date": "2026-07-23T00:00:00",
+    "age_days": 47
+  },
+  {
+    "defect_id": "DEF-ENG-0016",
+    "task_id": "TSK-ENG-0016",
+    "department": "Engineering",
+    "severity": "Critical",
+    "description": "Ballast shoulder erosion",
+    "location_km": "KM 12.0/0-13.6/5",
+    "reported_date": "2026-08-24T00:00:00",
+    "age_days": 15
+  },
+  {
+    "defect_id": "DEF-TRA-0017",
+    "task_id": "TSK-TRA-0017",
+    "department": "Traction Distribution",
+    "severity": "Critical",
+    "description": "Dropper wire broken",
+    "location_km": "KM 31.5/5-32.5/5",
+    "reported_date": "2026-07-20T00:00:00",
+    "age_days": 50
+  },
+  {
+    "defect_id": "DEF-TRA-0018",
+    "task_id": "TSK-TRA-0018",
+    "department": "Traction Distribution",
+    "severity": "Critical",
+    "description": "Dropper wire broken",
+    "location_km": "KM 13.1/0-14.2/1",
+    "reported_date": "2026-06-12T00:00:00",
+    "age_days": 88
+  },
+  {
+    "defect_id": "DEF-TRA-0019",
+    "task_id": "TSK-TRA-0019",
+    "department": "Traction Distribution",
+    "severity": "Medium",
+    "description": "Dropper wire broken",
+    "location_km": "KM 23.0/0-24.0/0",
+    "reported_date": "2026-08-24T00:00:00",
+    "age_days": 15
+  },
+  {
+    "defect_id": "DEF-TRA-0020",
+    "task_id": "TSK-TRA-0020",
+    "department": "Traction Distribution",
+    "severity": "High",
+    "description": "Insulator flashover damage",
+    "location_km": "KM 16.7/6-17.4/3",
+    "reported_date": "2026-07-05T00:00:00",
+    "age_days": 65
+  },
+  {
+    "defect_id": "DEF-ENG-0021",
+    "task_id": "TSK-ENG-0021",
+    "department": "Engineering",
+    "severity": "Medium",
+    "description": "Rail wear exceeding permissible limits",
+    "location_km": "KM 11.5/5-12.5/5",
+    "reported_date": "2026-08-18T00:00:00",
+    "age_days": 21
+  },
+  {
+    "defect_id": "DEF-SIG-0022",
+    "task_id": "TSK-SIG-0022",
+    "department": "Signal & Telecommunication",
+    "severity": "Medium",
+    "description": "Signal aspect failure - red not showing",
+    "location_km": "KM 4.6/5-5.8/7",
+    "reported_date": "2026-08-08T00:00:00",
+    "age_days": 31
+  },
+  {
+    "defect_id": "DEF-ENG-0023",
+    "task_id": "TSK-ENG-0023",
+    "department": "Engineering",
+    "severity": "Low",
+    "description": "Track geometry deviation detected",
+    "location_km": "KM 2.5/5-3.5/5",
+    "reported_date": "2026-08-30T00:00:00",
+    "age_days": 9
+  },
+  {
+    "defect_id": "DEF-SIG-0024",
+    "task_id": "TSK-SIG-0024",
+    "department": "Signal & Telecommunication",
+    "severity": "Low",
+    "description": "Track circuit count mismatch",
+    "location_km": "KM 13.7/6-14.6/5",
+    "reported_date": "2026-08-11T00:00:00",
+    "age_days": 28
+  },
+  {
+    "defect_id": "DEF-SIG-0025",
+    "task_id": "TSK-SIG-0025",
+    "department": "Signal & Telecommunication",
+    "severity": "Low",
+    "description": "Point motor overheating",
+    "location_km": "KM 4.3/2-5.0/0",
+    "reported_date": "2026-08-23T00:00:00",
+    "age_days": 16
+  }
+]

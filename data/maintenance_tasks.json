@@ -1,0 +1,590 @@
+[
+  {
+    "task_id": "TSK-TRA-0001",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Feeder Pillar Maintenance - OHE contact wire burn mark",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 12.9/9-13.3/3",
+    "duration_minutes": 44,
+    "required_resources": [
+      "Pantograph Gauge"
+    ],
+    "priority": "Critical",
+    "criticality_score": 0.91,
+    "dependencies": [],
+    "requested_by": "TRA/JE-1",
+    "requested_date": "2026-09-06T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0002",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "OHE Insulator Cleaning - Insulator flashover damage",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 1.7/7-2.0/0",
+    "duration_minutes": 87,
+    "required_resources": [
+      "OHE Ladder",
+      "Pantograph Gauge"
+    ],
+    "priority": "Critical",
+    "criticality_score": 1.0,
+    "dependencies": [],
+    "requested_by": "TRA/JE-3",
+    "requested_date": "2026-09-02T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0003",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Contact Wire Replacement - Feeder cable heating",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 13.7/6-15.1/0",
+    "duration_minutes": 43,
+    "required_resources": [
+      "OHE Ladder",
+      "Insulation Tester"
+    ],
+    "priority": "Critical",
+    "criticality_score": 1.0,
+    "dependencies": [],
+    "requested_by": "TRA/JE-4",
+    "requested_date": "2026-09-06T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-0004",
+    "department": "Engineering",
+    "task_type": "Corrective Maintenance",
+    "description": "Rail Grinding - Track geometry deviation detected",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 42.7/7-42.8/7",
+    "duration_minutes": 72,
+    "required_resources": [
+      "Welding Unit",
+      "Ballast Regulator"
+    ],
+    "priority": "Low",
+    "criticality_score": 0.55,
+    "dependencies": [],
+    "requested_by": "ENG/JE-4",
+    "requested_date": "2026-09-01T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0005",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "OHE Insulator Cleaning - Dropper wire broken",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 8.2/1-10.1/0",
+    "duration_minutes": 73,
+    "required_resources": [
+      "Insulation Tester"
+    ],
+    "priority": "Low",
+    "criticality_score": 0.45,
+    "dependencies": [],
+    "requested_by": "TRA/JE-3",
+    "requested_date": "2026-09-01T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-0006",
+    "department": "Engineering",
+    "task_type": "Corrective Maintenance",
+    "description": "Rail Grinding - Broken fishplate on joint",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 6.9/9-7.7/7",
+    "duration_minutes": 91,
+    "required_resources": [
+      "Ballast Regulator"
+    ],
+    "priority": "Critical",
+    "criticality_score": 1.0,
+    "dependencies": [],
+    "requested_by": "ENG/JE-4",
+    "requested_date": "2026-09-06T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-0007",
+    "department": "Engineering",
+    "task_type": "Corrective Maintenance",
+    "description": "Sleeper Replacement - Broken fishplate on joint",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 18.7/6-19.5/5",
+    "duration_minutes": 83,
+    "required_resources": [
+      "Track Machine",
+      "Ballast Regulator"
+    ],
+    "priority": "Low",
+    "criticality_score": 0.53,
+    "dependencies": [],
+    "requested_by": "ENG/JE-4",
+    "requested_date": "2026-09-01T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0008",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Feeder Pillar Maintenance - Insulator flashover damage",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 13.5/5-13.7/6",
+    "duration_minutes": 36,
+    "required_resources": [
+      "OHE Ladder"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.75,
+    "dependencies": [],
+    "requested_by": "TRA/JE-2",
+    "requested_date": "2026-09-06T00:00:00"
+  },
+  {
+    "task_id": "TSK-SIG-0009",
+    "department": "Signal & Telecommunication",
+    "task_type": "Corrective Maintenance",
+    "description": "Relay Room Inspection - Track circuit count mismatch",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 7.3/2-8.3/3",
+    "duration_minutes": 107,
+    "required_resources": [
+      "Relay Test Panel"
+    ],
+    "priority": "Critical",
+    "criticality_score": 1.0,
+    "dependencies": [],
+    "requested_by": "SIG/JE-1",
+    "requested_date": "2026-09-06T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-0010",
+    "department": "Engineering",
+    "task_type": "Corrective Maintenance",
+    "description": "Sleeper Replacement - Rail wear exceeding permissible limits",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 12.9/9-14.3/3",
+    "duration_minutes": 60,
+    "required_resources": [
+      "Welding Unit",
+      "Ballast Regulator"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.65,
+    "dependencies": [],
+    "requested_by": "ENG/JE-4",
+    "requested_date": "2026-09-02T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0011",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Feeder Pillar Maintenance - Insulator flashover damage",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 3.1/1-3.9/9",
+    "duration_minutes": 72,
+    "required_resources": [
+      "OHE Ladder"
+    ],
+    "priority": "High",
+    "criticality_score": 0.93,
+    "dependencies": [],
+    "requested_by": "TRA/JE-3",
+    "requested_date": "2026-09-06T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0012",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "OHE Insulator Cleaning - Feeder cable heating",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 15.8/8-17.4/3",
+    "duration_minutes": 67,
+    "required_resources": [
+      "OHE Ladder",
+      "Pantograph Gauge"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.53,
+    "dependencies": [],
+    "requested_by": "TRA/JE-5",
+    "requested_date": "2026-09-04T00:00:00"
+  },
+  {
+    "task_id": "TSK-SIG-0013",
+    "department": "Signal & Telecommunication",
+    "task_type": "Corrective Maintenance",
+    "description": "Cable Jointing - Cable insulation damage",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 11.2/1-12.2/1",
+    "duration_minutes": 112,
+    "required_resources": [
+      "Cable Jointer"
+    ],
+    "priority": "Critical",
+    "criticality_score": 1.0,
+    "dependencies": [],
+    "requested_by": "SIG/JE-1",
+    "requested_date": "2026-09-01T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-0014",
+    "department": "Engineering",
+    "task_type": "Corrective Maintenance",
+    "description": "Ballast Renewal - Ballast shoulder erosion",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 14.3/3-15.4/4",
+    "duration_minutes": 68,
+    "required_resources": [
+      "Welding Unit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.56,
+    "dependencies": [],
+    "requested_by": "ENG/JE-1",
+    "requested_date": "2026-09-03T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0015",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Catenary Wire Tensioning - Feeder cable heating",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 19.1/1-19.5/5",
+    "duration_minutes": 67,
+    "required_resources": [
+      "Insulation Tester"
+    ],
+    "priority": "Low",
+    "criticality_score": 0.46,
+    "dependencies": [],
+    "requested_by": "TRA/JE-5",
+    "requested_date": "2026-09-03T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-0016",
+    "department": "Engineering",
+    "task_type": "Corrective Maintenance",
+    "description": "Welding Joint Repair - Ballast shoulder erosion",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 12.0/0-13.6/5",
+    "duration_minutes": 100,
+    "required_resources": [
+      "Ballast Regulator"
+    ],
+    "priority": "Critical",
+    "criticality_score": 0.95,
+    "dependencies": [],
+    "requested_by": "ENG/JE-3",
+    "requested_date": "2026-09-06T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0017",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Pantograph Inspection - Dropper wire broken",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 31.5/5-32.5/5",
+    "duration_minutes": 55,
+    "required_resources": [
+      "Insulation Tester",
+      "Pantograph Gauge"
+    ],
+    "priority": "Critical",
+    "criticality_score": 1.0,
+    "dependencies": [],
+    "requested_by": "TRA/JE-1",
+    "requested_date": "2026-09-07T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0018",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Contact Wire Replacement - Dropper wire broken",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 13.1/0-14.2/1",
+    "duration_minutes": 69,
+    "required_resources": [
+      "Pantograph Gauge"
+    ],
+    "priority": "Critical",
+    "criticality_score": 1.0,
+    "dependencies": [],
+    "requested_by": "TRA/JE-2",
+    "requested_date": "2026-09-03T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0019",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Pantograph Inspection - Dropper wire broken",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 23.0/0-24.0/0",
+    "duration_minutes": 38,
+    "required_resources": [
+      "OHE Ladder"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.55,
+    "dependencies": [],
+    "requested_by": "TRA/JE-3",
+    "requested_date": "2026-09-05T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-0020",
+    "department": "Traction Distribution",
+    "task_type": "Corrective Maintenance",
+    "description": "Catenary Wire Tensioning - Insulator flashover damage",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 16.7/6-17.4/3",
+    "duration_minutes": 58,
+    "required_resources": [
+      "Pantograph Gauge"
+    ],
+    "priority": "High",
+    "criticality_score": 0.92,
+    "dependencies": [],
+    "requested_by": "TRA/JE-5",
+    "requested_date": "2026-09-05T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-0021",
+    "department": "Engineering",
+    "task_type": "Corrective Maintenance",
+    "description": "Track Inspection - Rail wear exceeding permissible limits",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 11.5/5-12.5/5",
+    "duration_minutes": 73,
+    "required_resources": [
+      "Track Machine",
+      "Ballast Regulator"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.57,
+    "dependencies": [],
+    "requested_by": "ENG/JE-5",
+    "requested_date": "2026-09-06T00:00:00"
+  },
+  {
+    "task_id": "TSK-SIG-0022",
+    "department": "Signal & Telecommunication",
+    "task_type": "Corrective Maintenance",
+    "description": "Track Circuit Testing - Signal aspect failure - red not showing",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 4.6/5-5.8/7",
+    "duration_minutes": 81,
+    "required_resources": [
+      "Signal Tester",
+      "Relay Test Panel"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.7,
+    "dependencies": [],
+    "requested_by": "SIG/JE-5",
+    "requested_date": "2026-09-04T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-0023",
+    "department": "Engineering",
+    "task_type": "Corrective Maintenance",
+    "description": "Track Alignment - Track geometry deviation detected",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 2.5/5-3.5/5",
+    "duration_minutes": 175,
+    "required_resources": [
+      "Ballast Regulator"
+    ],
+    "priority": "Low",
+    "criticality_score": 0.33,
+    "dependencies": [],
+    "requested_by": "ENG/JE-4",
+    "requested_date": "2026-09-01T00:00:00"
+  },
+  {
+    "task_id": "TSK-SIG-0024",
+    "department": "Signal & Telecommunication",
+    "task_type": "Corrective Maintenance",
+    "description": "Track Circuit Testing - Track circuit count mismatch",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 13.7/6-14.6/5",
+    "duration_minutes": 50,
+    "required_resources": [
+      "Signal Tester",
+      "Relay Test Panel"
+    ],
+    "priority": "Low",
+    "criticality_score": 0.49,
+    "dependencies": [],
+    "requested_by": "SIG/JE-2",
+    "requested_date": "2026-09-02T00:00:00"
+  },
+  {
+    "task_id": "TSK-SIG-0025",
+    "department": "Signal & Telecommunication",
+    "task_type": "Corrective Maintenance",
+    "description": "Relay Room Inspection - Point motor overheating",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 4.3/2-5.0/0",
+    "duration_minutes": 115,
+    "required_resources": [
+      "Signal Tester"
+    ],
+    "priority": "Low",
+    "criticality_score": 0.45,
+    "dependencies": [],
+    "requested_by": "SIG/JE-1",
+    "requested_date": "2026-09-02T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-P658",
+    "department": "Engineering",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled R",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 11/0",
+    "duration_minutes": 97,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "ENG/SSE",
+    "requested_date": "2026-08-21T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-P540",
+    "department": "Engineering",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled i",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 1/0",
+    "duration_minutes": 79,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "ENG/SSE",
+    "requested_date": "2026-08-24T00:00:00"
+  },
+  {
+    "task_id": "TSK-ENG-P466",
+    "department": "Engineering",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled l",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 7/0",
+    "duration_minutes": 102,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "ENG/SSE",
+    "requested_date": "2026-08-28T00:00:00"
+  },
+  {
+    "task_id": "TSK-SIG-P898",
+    "department": "Signal & Telecommunication",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled c",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 26/0",
+    "duration_minutes": 99,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "SIG/SSE",
+    "requested_date": "2026-08-27T00:00:00"
+  },
+  {
+    "task_id": "TSK-SIG-P985",
+    "department": "Signal & Telecommunication",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled l",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 5/0",
+    "duration_minutes": 116,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "SIG/SSE",
+    "requested_date": "2026-08-23T00:00:00"
+  },
+  {
+    "task_id": "TSK-SIG-P283",
+    "department": "Signal & Telecommunication",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled p",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 13/0",
+    "duration_minutes": 111,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "SIG/SSE",
+    "requested_date": "2026-08-19T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-P373",
+    "department": "Traction Distribution",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled n",
+    "track_section": "NDLS-GZB-UP",
+    "location_km": "KM 3/0",
+    "duration_minutes": 84,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "TRA/SSE",
+    "requested_date": "2026-08-29T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-P327",
+    "department": "Traction Distribution",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled s",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 52/0",
+    "duration_minutes": 118,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "TRA/SSE",
+    "requested_date": "2026-08-22T00:00:00"
+  },
+  {
+    "task_id": "TSK-TRA-P412",
+    "department": "Traction Distribution",
+    "task_type": "Preventive Maintenance",
+    "description": "Scheduled u",
+    "track_section": "GZB-MTC-DN",
+    "location_km": "KM 14/0",
+    "duration_minutes": 61,
+    "required_resources": [
+      "Standard Toolkit"
+    ],
+    "priority": "Medium",
+    "criticality_score": 0.4,
+    "dependencies": [],
+    "requested_by": "TRA/SSE",
+    "requested_date": "2026-08-19T00:00:00"
+  }
+]

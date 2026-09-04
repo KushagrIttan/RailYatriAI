@@ -1,0 +1,226 @@
+[
+  {
+    "block_id": "BLK-TRA-0001",
+    "task_ids": [
+      "TSK-TRA-0001"
+    ],
+    "department": "Traction Distribution",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-11T22:00:00",
+    "requested_end": "2026-09-11T22:44:00",
+    "duration_minutes": 44,
+    "status": "Pending Review",
+    "justification": "Critical priority - Feeder Pillar Maintenance - OHE contact wire burn ",
+    "requested_by": "TRA/JE-1",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-TRA-0002",
+    "task_ids": [
+      "TSK-TRA-0002"
+    ],
+    "department": "Traction Distribution",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-12T02:00:00",
+    "requested_end": "2026-09-12T03:27:00",
+    "duration_minutes": 87,
+    "status": "Pending Review",
+    "justification": "Critical priority - OHE Insulator Cleaning - Insulator flashover damag",
+    "requested_by": "TRA/JE-3",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-TRA-0003",
+    "task_ids": [
+      "TSK-TRA-0003"
+    ],
+    "department": "Traction Distribution",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-13T22:00:00",
+    "requested_end": "2026-09-13T22:43:00",
+    "duration_minutes": 43,
+    "status": "Pending Review",
+    "justification": "Critical priority - Contact Wire Replacement - Feeder cable heating",
+    "requested_by": "TRA/JE-4",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-ENG-0004",
+    "task_ids": [
+      "TSK-ENG-0006"
+    ],
+    "department": "Engineering",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-08T02:00:00",
+    "requested_end": "2026-09-08T03:31:00",
+    "duration_minutes": 91,
+    "status": "Pending Review",
+    "justification": "Critical priority - Rail Grinding - Broken fishplate on joint",
+    "requested_by": "ENG/JE-4",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-TRA-0005",
+    "task_ids": [
+      "TSK-TRA-0008"
+    ],
+    "department": "Traction Distribution",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-10T14:00:00",
+    "requested_end": "2026-09-10T14:36:00",
+    "duration_minutes": 36,
+    "status": "Requested",
+    "justification": "Medium priority - Feeder Pillar Maintenance - Insulator flashover da",
+    "requested_by": "TRA/JE-2",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-SIG-0006",
+    "task_ids": [
+      "TSK-SIG-0009"
+    ],
+    "department": "Signal & Telecommunication",
+    "track_section": "GZB-MTC-DN",
+    "requested_start": "2026-09-09T22:00:00",
+    "requested_end": "2026-09-09T23:47:00",
+    "duration_minutes": 107,
+    "status": "Pending Review",
+    "justification": "Critical priority - Relay Room Inspection - Track circuit count mismat",
+    "requested_by": "SIG/JE-1",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-ENG-0007",
+    "task_ids": [
+      "TSK-ENG-0010"
+    ],
+    "department": "Engineering",
+    "track_section": "GZB-MTC-DN",
+    "requested_start": "2026-09-13T22:00:00",
+    "requested_end": "2026-09-13T23:00:00",
+    "duration_minutes": 60,
+    "status": "Requested",
+    "justification": "Medium priority - Sleeper Replacement - Rail wear exceeding permissi",
+    "requested_by": "ENG/JE-4",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-TRA-0008",
+    "task_ids": [
+      "TSK-TRA-0011"
+    ],
+    "department": "Traction Distribution",
+    "track_section": "GZB-MTC-DN",
+    "requested_start": "2026-09-14T10:00:00",
+    "requested_end": "2026-09-14T11:12:00",
+    "duration_minutes": 72,
+    "status": "Pending Review",
+    "justification": "High priority - Feeder Pillar Maintenance - Insulator flashover da",
+    "requested_by": "TRA/JE-3",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-SIG-0009",
+    "task_ids": [
+      "TSK-SIG-0013"
+    ],
+    "department": "Signal & Telecommunication",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-08T22:00:00",
+    "requested_end": "2026-09-08T23:52:00",
+    "duration_minutes": 112,
+    "status": "Requested",
+    "justification": "Critical priority - Cable Jointing - Cable insulation damage",
+    "requested_by": "SIG/JE-1",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-ENG-0010",
+    "task_ids": [
+      "TSK-ENG-0016"
+    ],
+    "department": "Engineering",
+    "track_section": "GZB-MTC-DN",
+    "requested_start": "2026-09-11T14:00:00",
+    "requested_end": "2026-09-11T15:40:00",
+    "duration_minutes": 100,
+    "status": "Pending Review",
+    "justification": "Critical priority - Welding Joint Repair - Ballast shoulder erosion",
+    "requested_by": "ENG/JE-3",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-TRA-0011",
+    "task_ids": [
+      "TSK-TRA-0017"
+    ],
+    "department": "Traction Distribution",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-09T14:00:00",
+    "requested_end": "2026-09-09T14:55:00",
+    "duration_minutes": 55,
+    "status": "Pending Review",
+    "justification": "Critical priority - Pantograph Inspection - Dropper wire broken",
+    "requested_by": "TRA/JE-1",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-TRA-0012",
+    "task_ids": [
+      "TSK-TRA-0018"
+    ],
+    "department": "Traction Distribution",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-09T14:00:00",
+    "requested_end": "2026-09-09T15:09:00",
+    "duration_minutes": 69,
+    "status": "Pending Review",
+    "justification": "Critical priority - Contact Wire Replacement - Dropper wire broken",
+    "requested_by": "TRA/JE-2",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-TRA-0013",
+    "task_ids": [
+      "TSK-TRA-0020"
+    ],
+    "department": "Traction Distribution",
+    "track_section": "GZB-MTC-DN",
+    "requested_start": "2026-09-14T14:00:00",
+    "requested_end": "2026-09-14T14:58:00",
+    "duration_minutes": 58,
+    "status": "Pending Review",
+    "justification": "High priority - Catenary Wire Tensioning - Insulator flashover dam",
+    "requested_by": "TRA/JE-5",
+    "approved_by": null,
+    "rejection_reason": null
+  },
+  {
+    "block_id": "BLK-SIG-0014",
+    "task_ids": [
+      "TSK-SIG-0022"
+    ],
+    "department": "Signal & Telecommunication",
+    "track_section": "NDLS-GZB-UP",
+    "requested_start": "2026-09-12T10:00:00",
+    "requested_end": "2026-09-12T11:21:00",
+    "duration_minutes": 81,
+    "status": "Requested",
+    "justification": "Medium priority - Track Circuit Testing - Signal aspect failure - re",
+    "requested_by": "SIG/JE-5",
+    "approved_by": null,
+    "rejection_reason": null
+  }
+]

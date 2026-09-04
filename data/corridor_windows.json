@@ -1,0 +1,674 @@
+[
+  {
+    "window_id": "COR-NDLS-GZB-UP-00-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-08T22:00:00",
+    "available_end": "2026-09-09T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-00-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-08T14:00:00",
+    "available_end": "2026-09-08T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-00-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-08T22:00:00",
+    "available_end": "2026-09-09T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-00-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-08T14:00:00",
+    "available_end": "2026-09-08T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-01-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-09T22:00:00",
+    "available_end": "2026-09-10T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-01-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-09T14:00:00",
+    "available_end": "2026-09-09T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-01-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-09T22:00:00",
+    "available_end": "2026-09-10T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-01-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-09T14:00:00",
+    "available_end": "2026-09-09T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-02-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-10T22:00:00",
+    "available_end": "2026-09-11T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-02-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-10T14:00:00",
+    "available_end": "2026-09-10T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-02-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-10T22:00:00",
+    "available_end": "2026-09-11T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-02-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-10T14:00:00",
+    "available_end": "2026-09-10T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-03-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-11T22:00:00",
+    "available_end": "2026-09-12T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-03-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-11T14:00:00",
+    "available_end": "2026-09-11T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-03-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-11T22:00:00",
+    "available_end": "2026-09-12T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-03-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-11T14:00:00",
+    "available_end": "2026-09-11T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-04-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-12T22:00:00",
+    "available_end": "2026-09-13T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-04-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-12T14:00:00",
+    "available_end": "2026-09-12T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-04-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-12T22:00:00",
+    "available_end": "2026-09-13T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-04-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-12T14:00:00",
+    "available_end": "2026-09-12T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-05-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-13T22:00:00",
+    "available_end": "2026-09-14T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-05-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-13T14:00:00",
+    "available_end": "2026-09-13T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-05-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-13T22:00:00",
+    "available_end": "2026-09-14T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-05-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-13T14:00:00",
+    "available_end": "2026-09-13T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-06-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-14T22:00:00",
+    "available_end": "2026-09-15T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-06-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-14T14:00:00",
+    "available_end": "2026-09-14T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-06-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-14T22:00:00",
+    "available_end": "2026-09-15T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-06-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-14T14:00:00",
+    "available_end": "2026-09-14T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-07-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-15T22:00:00",
+    "available_end": "2026-09-16T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-07-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-15T14:00:00",
+    "available_end": "2026-09-15T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-07-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-15T22:00:00",
+    "available_end": "2026-09-16T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-07-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-15T14:00:00",
+    "available_end": "2026-09-15T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-08-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-16T22:00:00",
+    "available_end": "2026-09-17T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-08-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-16T14:00:00",
+    "available_end": "2026-09-16T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-08-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-16T22:00:00",
+    "available_end": "2026-09-17T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-08-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-16T14:00:00",
+    "available_end": "2026-09-16T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-09-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-17T22:00:00",
+    "available_end": "2026-09-18T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-09-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-17T14:00:00",
+    "available_end": "2026-09-17T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-09-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-17T22:00:00",
+    "available_end": "2026-09-18T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-09-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-17T14:00:00",
+    "available_end": "2026-09-17T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-10-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-18T22:00:00",
+    "available_end": "2026-09-19T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-10-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-18T14:00:00",
+    "available_end": "2026-09-18T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-10-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-18T22:00:00",
+    "available_end": "2026-09-19T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-10-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-18T14:00:00",
+    "available_end": "2026-09-18T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-11-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-19T22:00:00",
+    "available_end": "2026-09-20T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-11-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-19T14:00:00",
+    "available_end": "2026-09-19T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-11-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-19T22:00:00",
+    "available_end": "2026-09-20T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-11-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-19T14:00:00",
+    "available_end": "2026-09-19T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-12-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-20T22:00:00",
+    "available_end": "2026-09-21T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-12-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-20T14:00:00",
+    "available_end": "2026-09-20T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-12-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-20T22:00:00",
+    "available_end": "2026-09-21T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-12-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-20T14:00:00",
+    "available_end": "2026-09-20T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-13-NIGHT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-21T22:00:00",
+    "available_end": "2026-09-22T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-NDLS-GZB-UP-13-AFT",
+    "track_section": "NDLS-GZB-UP",
+    "available_start": "2026-09-21T14:00:00",
+    "available_end": "2026-09-21T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-13-NIGHT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-21T22:00:00",
+    "available_end": "2026-09-22T05:00:00",
+    "duration_minutes": 420,
+    "window_type": "Night Block",
+    "constraints": [
+      "No passenger train interference",
+      "OHE work allowed"
+    ]
+  },
+  {
+    "window_id": "COR-GZB-MTC-DN-13-AFT",
+    "track_section": "GZB-MTC-DN",
+    "available_start": "2026-09-21T14:00:00",
+    "available_end": "2026-09-21T16:30:00",
+    "duration_minutes": 150,
+    "window_type": "Freight-Free Window",
+    "constraints": [
+      "Passenger trains running",
+      "No OHE disconnection"
+    ]
+  }
+]

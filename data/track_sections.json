@@ -1,0 +1,20 @@
+[
+  {
+    "section_id": "NDLS-GZB-UP",
+    "name": "NDLS-GZB Section",
+    "from_station": "NDLS",
+    "to_station": "GZB",
+    "length_km": 19.2,
+    "electrified": true,
+    "max_speed_kmph": 110
+  },
+  {
+    "section_id": "GZB-MTC-DN",
+    "name": "GZB-MTC Section",
+    "from_station": "GZB",
+    "to_station": "MTC",
+    "length_km": 52.8,
+    "electrified": true,
+    "max_speed_kmph": 110
+  }
+]
