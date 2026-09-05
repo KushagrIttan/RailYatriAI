@@ -119,6 +119,20 @@ export default function App() {
     }, 900);
   };
 
+  const handleReject = (reason: string) => {
+    if (!schedule || !activeConflict || !activeRecommendation) return;
+    pushLog(`Controller REJECTED plan ${activeRecommendation.id} for ${activeConflict.code}: ${reason}`, "warn");
+    setSchedule((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        conflicts: prev.conflicts.map((c) =>
+          c.id === activeConflict.id ? { ...c, resolved: true } : c,
+        ),
+      };
+    });
+  };
+
   const handleOverride = () => {
     pushLog("Manual override requested — controller assumes path authority", "warn");
     setSimulation("Manual adjust armed. Drag a train block on the track view to stage a new path.");
@@ -156,7 +170,7 @@ export default function App() {
         <section className="space-y-3 lg:col-span-3">
           <div className="panel-surface flex flex-wrap items-center gap-4 px-4 py-3">
             <Select value={corridorId} onValueChange={setCorridorId}>
-              <SelectTrigger className="w-[19rem] bg-background/60">
+              <SelectTrigger className="w-[15rem] bg-background/60">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -167,6 +181,19 @@ export default function App() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                pushLog("Demo Mode Initiated", "info");
+                setCorridorId(CORRIDORS[0]!.id);
+                setWindowOffset(30);
+              }}
+              className="h-9 border-suburban/30 bg-suburban/10 text-suburban hover:bg-suburban/20"
+            >
+              Demo Mode
+            </Button>
 
             <div className="flex min-w-56 flex-1 items-center gap-3">
               <Gauge className="size-4 shrink-0 text-muted-foreground" />
@@ -200,6 +227,7 @@ export default function App() {
             recommendation={activeRecommendation}
             approving={approving}
             onApprove={handleApprove}
+            onReject={handleReject}
             onOverride={handleOverride}
             onSimulate={handleSimulate}
             simulation={simulation}

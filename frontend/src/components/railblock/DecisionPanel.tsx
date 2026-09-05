@@ -18,9 +18,12 @@ export function DecisionPanel({
   onApprove: () => void;
   onOverride: () => void;
   onSimulate: () => void;
+  onReject: (reason: string) => void;
   simulation: string | null;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [rejectMode, setRejectMode] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   if (!conflict || !recommendation) {
     return (
@@ -121,32 +124,63 @@ export function DecisionPanel({
           </div>
         )}
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button
-            onClick={onApprove}
-            disabled={approving !== "idle"}
-            className="relative flex-1 overflow-hidden bg-success text-success-foreground hover:bg-success/90"
-          >
-            {approving === "working" && (
-              <span className="animate-sweep absolute inset-y-0 w-1/3 bg-white/20" />
-            )}
-            {approving === "done" ? (
-              <>
-                <CheckCircle2 className="size-4" /> Plan Applied
-              </>
-            ) : approving === "working" ? (
-              "Applying…"
-            ) : (
-              "Approve AI Plan"
-            )}
-          </Button>
-          <Button variant="outline" onClick={onOverride} className="border-warning/50 text-warning hover:bg-warning/10">
-            <SlidersHorizontal className="size-4" /> Override
-          </Button>
-          <Button variant="ghost" onClick={onSimulate} className="text-muted-foreground">
-            <FlaskConical className="size-4" /> Simulate
-          </Button>
-        </div>
+        {rejectMode ? (
+          <div className="mt-4 flex w-full flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+            <input
+              type="text"
+              placeholder="Enter justification for rejection..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  onReject(rejectReason);
+                  setRejectMode(false);
+                  setRejectReason("");
+                }}
+                disabled={!rejectReason.trim()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Confirm Reject
+              </Button>
+              <Button variant="ghost" onClick={() => setRejectMode(false)} className="text-muted-foreground">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              onClick={onApprove}
+              disabled={approving !== "idle"}
+              className="relative flex-1 overflow-hidden bg-success text-success-foreground hover:bg-success/90"
+            >
+              {approving === "working" && (
+                <span className="animate-sweep absolute inset-y-0 w-1/3 bg-white/20" />
+              )}
+              {approving === "done" ? (
+                <>
+                  <CheckCircle2 className="size-4" /> Plan Applied
+                </>
+              ) : approving === "working" ? (
+                "Applying…"
+              ) : (
+                "Approve AI Plan"
+              )}
+            </Button>
+            <Button variant="outline" onClick={() => setRejectMode(true)} className="border-destructive/50 text-destructive hover:bg-destructive/10">
+              Reject
+            </Button>
+            <Button variant="outline" onClick={onOverride} className="border-warning/50 text-warning hover:bg-warning/10">
+              <SlidersHorizontal className="size-4" /> Override
+            </Button>
+            <Button variant="ghost" onClick={onSimulate} className="text-muted-foreground">
+              <FlaskConical className="size-4" /> Simulate
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

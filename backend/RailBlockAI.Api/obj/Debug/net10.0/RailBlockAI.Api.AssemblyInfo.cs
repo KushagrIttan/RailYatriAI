@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RailBlockAI.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5cfc6047c983ef30af944f10575700fa90d12cbf")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cbeef6a8d25a9e440e293d566a351a7b4616cc28")]
 [assembly: System.Reflection.AssemblyProductAttribute("RailBlockAI.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RailBlockAI.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
