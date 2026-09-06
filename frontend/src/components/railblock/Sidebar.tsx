@@ -1,4 +1,4 @@
-import { Activity, ClipboardCheck, Gauge, LayoutDashboard, ListChecks, ScrollText, Settings, TrainFront } from "lucide-react";
+import { Activity, ClipboardCheck, LayoutDashboard, TrainFront } from "lucide-react";
 import type { KpiSnapshot } from "@/lib/railblock/types";
 
 type NavItem = { label: string; icon: React.ReactNode; active?: boolean; badge?: number };
@@ -108,23 +108,6 @@ export function Sidebar({
               Saved · {new Date(replayContext.capturedAt).toLocaleDateString("en-IN")}
             </p>
           )}
-        </div>
-
-        {/* Planning */}
-        <div>
-          <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-            Planning
-          </p>
-          <div className="space-y-0.5">
-            <NavLink
-              label="Work Queue"
-              icon={<ListChecks className="size-4" />}
-              badge={kpis.activeConflicts}
-            />
-            <NavLink label="Decision Panel" icon={<Gauge className="size-4" />} />
-            <NavLink label="Activity Log" icon={<ScrollText className="size-4" />} />
-            <NavLink label="Settings" icon={<Settings className="size-4" />} />
-          </div>
         </div>
 
         {/* KPI summary */}
