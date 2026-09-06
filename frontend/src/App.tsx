@@ -8,6 +8,7 @@ import { MonthView } from "@/components/railblock/MonthView";
 import { DecisionPanel } from "@/components/railblock/DecisionPanel";
 import { LogStream } from "@/components/railblock/LogStream";
 import { MlStatsPanel } from "@/components/railblock/MlStatsPanel";
+import { TriagePanel } from "@/components/railblock/TriagePanel";
 import { WorkQueue } from "@/components/railblock/WorkQueue";
 import { DebugDrawer } from "@/components/railblock/DebugDrawer";
 import { PlanningGuide } from "@/components/railblock/PlanningGuide";
@@ -384,17 +385,6 @@ export default function App() {
             )}
           </div>
 
-          {/* Live ML decision intelligence */}
-          {!fetchError && schedule && (
-            <div className="mx-6 mt-5">
-              <MlStatsPanel
-                stats={schedule.mlStats ?? null}
-                approvedCount={approvedCount}
-                pendingCount={displayConflicts.filter((c) => !c.resolved).length}
-              />
-            </div>
-          )}
-
           {/* WorkQueue + DecisionPanel side by side */}
           <div className="mx-6 mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
             <WorkQueue
@@ -415,6 +405,24 @@ export default function App() {
               simulation={simulation}
             />
           </div>
+
+          {/* Triage queue */}
+          {!fetchError && schedule?.triage && (
+            <div className="mx-6 mt-5">
+              <TriagePanel triage={schedule.triage} />
+            </div>
+          )}
+
+          {/* Live ML decision intelligence */}
+          {!fetchError && schedule && (
+            <div className="mx-6 mt-5">
+              <MlStatsPanel
+                stats={schedule.mlStats ?? null}
+                approvedCount={approvedCount}
+                pendingCount={displayConflicts.filter((c) => !c.resolved).length}
+              />
+            </div>
+          )}
 
           {/* Activity log */}
           <div className="mx-6 mt-5 pb-8">
