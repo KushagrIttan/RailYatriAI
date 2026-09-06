@@ -125,10 +125,16 @@ class OptimizationResult(BaseModel):
     schedule: List[ScheduledBlock]
     # Replay path only: {scores: {case_id: float}} filled by optimize_replay.
     ml_info: Optional[dict] = None
+    # Replay path only: real KPIs (trainsDelayed, utilization, deadlines met).
+    metrics: Optional[dict] = None
 
 class OptimizationRequest(BaseModel):
     tasks: List[MaintenanceTask]
     corridor_windows: List[CorridorWindow]
+
+class ResourceInventoryItem(BaseModel):
+    name: str
+    units: int = 1
 
 class ReplayContext(BaseModel):
     data_mode: str
@@ -141,6 +147,12 @@ class ReplayContext(BaseModel):
     source_note: str
     horizon: str = "daily"      # daily | weekly | monthly
     planning_days: int = 1
+    # single = both running lines blocked together (freeze behaviour);
+    # double = gaps derived per direction so work on one track spares the other.
+    line_mode: str = "single"
+    # Optional crew/machine capacity. Absent -> 1 unit per resource type, which
+    # only binds when two cases share a resource in an overlapping slot.
+    resource_catalog: Optional[List[ResourceInventoryItem]] = None
 
 class TrainMovement(BaseModel):
     id: str
@@ -177,6 +189,9 @@ class MaintenanceCase(BaseModel):
     estimated_work_minutes: int
     required_resources: List[str]
     procedure_profile_id: str
+    # Recurrence interval for weekly/monthly planning. Absent/1 = demanded daily
+    # (freeze behaviour); 7 = due on days 0,7,14,...; 30 = once a month.
+    recurrence_days: Optional[int] = None
 
 class ReplayOptimizationRequest(BaseModel):
     replay_context: ReplayContext
@@ -540,39 +555,82 @@ def _score_replay_cases(cases: List[MaintenanceCase]) -> Tuple[dict, dict]:
     }
 
 
+HEADWAY_MINUTES_BY_CLASS = {"Express": 10, "Passenger": 8, "EMU": 5, "MEMU": 6, "Freight": 15}
+HEADWAY_DEFAULT_MINUTES = 10
+
+
+def _class_headway(train_class: str) -> int:
+    """Safety buffer around a movement, from its train class (min)."""
+    return HEADWAY_MINUTES_BY_CLASS.get(train_class, HEADWAY_DEFAULT_MINUTES)
+
+
 def _derive_replay_gaps(request: ReplayOptimizationRequest) -> List[dict]:
-    """Return timetable gaps after applying a deterministic 15-minute headway."""
+    """Return timetable gaps after applying a class-aware safety headway.
+
+    Padding is per train class (Express 10 / suburban 5 / freight 15 min) rather
+    than a uniform 15 min, so fast-commuter corridors yield wider usable gaps.
+    On double line (replay_context.line_mode == "double") gaps are derived per
+    direction: blocking one running track does not require clearing the other.
+    """
     start, end = request.replay_context.planning_start, request.replay_context.planning_end
-    occupied = []
-    for movement in request.train_movements:
-        entry = max(start, movement.scheduled_entry - timedelta(minutes=15))
-        exit = min(end, movement.scheduled_exit + timedelta(minutes=15))
-        if entry < exit:
-            occupied.append((entry, exit, movement.id))
-    occupied.sort(key=lambda item: item[0])
-    merged = []
-    for entry, exit, movement_id in occupied:
-        if merged and entry <= merged[-1][1]:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], exit), merged[-1][2] + [movement_id])
-        else:
-            merged.append((entry, exit, [movement_id]))
-    gaps, cursor, previous_movement_ids = [], start, []
-    for entry, exit, movement_ids in merged:
-        if cursor < entry:
+    line_mode = getattr(request.replay_context, "line_mode", "single") or "single"
+
+    def merge_for(direction_filter: Optional[str]) -> List[dict]:
+        occupied = []
+        for movement in request.train_movements:
+            direction = getattr(movement, "direction", "any") or "any"
+            if direction_filter and direction != direction_filter:
+                continue
+            headway = _class_headway(movement.train_class)
+            entry = max(start, movement.scheduled_entry - timedelta(minutes=headway))
+            exit = min(end, movement.scheduled_exit + timedelta(minutes=headway))
+            if entry < exit:
+                occupied.append((entry, exit, movement.id, headway))
+        occupied.sort(key=lambda item: item[0])
+        merged = []  # (entry, exit, [ids], cluster_max_headway)
+        for entry, exit, movement_id, headway in occupied:
+            if merged and entry <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], exit),
+                              merged[-1][2] + [movement_id], max(merged[-1][3], headway))
+            else:
+                merged.append((entry, exit, [movement_id], headway))
+        gaps, cursor, prev_ids, prev_headway = [], start, [], None
+        for entry, exit, movement_ids, cluster_headway in merged:
+            if cursor < entry:
+                flank_headway = max(
+                    [hw for hw in (prev_headway, cluster_headway) if hw is not None]
+                ) if (prev_ids or movement_ids) else HEADWAY_DEFAULT_MINUTES
+                gaps.append({
+                    "start": cursor,
+                    "end": entry,
+                    "occupied_by_train_ids": prev_ids + movement_ids,
+                    "direction": direction_filter or "any",
+                    "headwayMinutes": flank_headway,
+                })
+            cursor = max(cursor, exit)
+            prev_ids = movement_ids
+            prev_headway = cluster_headway
+        if cursor < end:
             gaps.append({
                 "start": cursor,
-                "end": entry,
-                "occupied_by_train_ids": previous_movement_ids + movement_ids,
+                "end": end,
+                "occupied_by_train_ids": prev_ids,
+                "direction": direction_filter or "any",
+                "headwayMinutes": prev_headway if prev_headway is not None else HEADWAY_DEFAULT_MINUTES,
             })
-        cursor = max(cursor, exit)
-        previous_movement_ids = movement_ids
-    if cursor < end:
-        gaps.append({
-            "start": cursor,
-            "end": end,
-            "occupied_by_train_ids": previous_movement_ids,
-        })
-    return gaps
+        return gaps
+
+    if line_mode == "double":
+        directions = sorted(
+            {getattr(m, "direction", "any") or "any" for m in request.train_movements}
+        )
+        if not directions:
+            directions = ["UP", "DN"]
+        result: List[dict] = []
+        for dr in directions:
+            result.extend(merge_for(dr))
+        return result
+    return merge_for(None)
 
 
 def _horizon_planning_days(request: ReplayOptimizationRequest) -> int:
@@ -583,33 +641,307 @@ def _horizon_planning_days(request: ReplayOptimizationRequest) -> int:
     return {"daily": 1, "weekly": 7, "monthly": 30}.get(ctx.horizon, 1)
 
 
+RESOURCE_DEFAULT_UNITS = 1
+MAX_RESCUES_PER_DAY = 6
+SECTION_RISK_WEIGHT = 0.15
+SECTION_RISK_CAP = 2.0
+DEFERRAL_BOOST = 0.05
+
+
+def _resource_units(cases: List[MaintenanceCase],
+                    catalog: Optional[List[ResourceInventoryItem]]) -> Dict[str, int]:
+    """Effective per-resource capacity (units). Absent catalog -> 1 unit per type."""
+    units: Dict[str, int] = {}
+    if catalog:
+        for item in catalog:
+            units[item.name] = max(item.units, 1)
+    for case in cases:
+        for r in case.required_resources:
+            units.setdefault(r, RESOURCE_DEFAULT_UNITS)
+    return units
+
+
+def _case_due(case: MaintenanceCase, day_index: int) -> bool:
+    """Interval-aware demand: a case is due on day d when d is a multiple of its
+    recurrence interval. None/1 => demanded every day (freeze behaviour)."""
+    interval = getattr(case, "recurrence_days", None) or 1
+    return interval == 1 or day_index % interval == 0
+
+
+def _day_order_key(case: MaintenanceCase, ml_scores: dict,
+                   sections_risk: Dict[str, float], deferred_prev: set) -> tuple:
+    """Ordering for one day: calibrated ML score, plus a cross-day carry-over that
+    (a) keeps pushing a section that was worked or blocked recently, and (b) boosts
+    a case that was deferred the previous day."""
+    ml = ml_scores.get(case.case_id, 0.0)
+    carry = min(sections_risk.get(case.section_id, 0.0), 0.5)
+    boost = DEFERRAL_BOOST if case.case_id in deferred_prev else 0.0
+    return (-(ml + carry + boost), _replay_priority(case))
+
+
+def _place_day(
+    day_idx: int,
+    ordered_cases: List[MaintenanceCase],
+    gaps: List[dict],
+    profiles: dict,
+    ml_scores: dict,
+    resource_units: dict,
+) -> Tuple[List[ScheduledBlock], dict]:
+    """Best-fit day placement with a limited rescue-swap backtracking pass.
+
+    Each case is placed in the gap that leaves the widest margin on both sides
+    (so a small job does not consume the only gap a large job can use). When no
+    gap is free, a bounded backtracking pass tries to displace an occupying block
+    into another feasible gap to free a slot for the waiting case. Resource
+    capacity is enforced per slot so a crew/machine can never be double-booked.
+    """
+    used: List[dict] = []               # {gap_index, start, end, block, resources, reported_at}
+    bookings: Dict[str, list] = {}      # resource -> [(start, end, case_id)]
+    day_blocks: List[ScheduledBlock] = []
+    rescued = 0
+
+    def _time_free(start, end, ignore_index=None, gap_index=None) -> bool:
+        for idx, u in enumerate(used):
+            if idx == ignore_index:
+                continue
+            if gap_index is not None and u["gap_index"] != gap_index:
+                continue          # blocks on another running track share wall-clock but not the gap
+            if start < u["end"] and end > u["start"]:
+                return False
+        return True
+
+    def _resources_free(resources, start, end, ignore_case_id=None) -> bool:
+        for r in resources:
+            units = resource_units.get(r, RESOURCE_DEFAULT_UNITS)
+            busy = sum(
+                1 for (bs, be, bid) in bookings.get(r, [])
+                if bid != ignore_case_id and bs < end and be > start
+            )
+            if busy >= units:
+                return False
+        return True
+
+    def _find_slot(case, required_minutes):
+        best = None
+        for i, gap in enumerate(gaps):
+            candidate_start = max(gap["start"], case.reported_at)
+            candidate_end = candidate_start + timedelta(minutes=required_minutes)
+            if candidate_end > gap["end"]:
+                continue
+            if not _time_free(candidate_start, candidate_end, gap_index=i):
+                continue
+            if not _resources_free(case.required_resources, candidate_start, candidate_end):
+                continue
+            left_margin = (candidate_start - gap["start"]).total_seconds() / 60.0
+            right_margin = (gap["end"] - candidate_end).total_seconds() / 60.0
+            fit = (min(left_margin, right_margin), -i)
+            if best is None or fit > best[0]:
+                best = (fit, i, candidate_start, candidate_end)
+        return best
+
+    def _make_block(case, profile, start, end, day_tag, status, window_id, reason):
+        priority = {"emergency": "Critical", "urgent": "High", "planned": "Medium"}.get(case.urgency, "Low")
+        access = []
+        if profile.traffic_block_required: access.append("temporary track closure")
+        if profile.power_block_required: access.append("electrical isolation")
+        if profile.disconnection_notice_required: access.append("equipment disconnection notice")
+        if profile.permit_to_work_required: access.append("formal safety clearance")
+        if status == ScheduleStatus.DEFERRED:
+            work_start, work_end = datetime.min, datetime.min
+            conflict_reason = reason
+        else:
+            work_start = start + timedelta(minutes=profile.minimum_setup_minutes)
+            work_end = work_start + timedelta(minutes=case.estimated_work_minutes)
+            conflict_reason = f"Safety requirements: {', '.join(access)}."
+        suffix = "-DEFERRED" if status == ScheduleStatus.DEFERRED else ""
+        return ScheduledBlock(
+            block_id=f"RPL-{case.case_id}-{day_tag}{suffix}", task_id=case.case_id, department=case.department,
+            track_section=case.section_id, location_km=case.location_reference,
+            scheduled_start=work_start, scheduled_end=work_end,
+            duration_minutes=case.estimated_work_minutes, priority=priority,
+            criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
+            window_id=window_id, status=status,
+            conflict_reason=conflict_reason,
+        )
+
+    def _place(case, profile, slot, day_tag):
+        _, gi, start, end = slot
+        block = _make_block(case, profile, start, end, day_tag,
+                            ScheduleStatus.SCHEDULED, f"GAP-{gaps[gi]['start'].strftime('%H%M')}", "")
+        day_blocks.append(block)
+        used.append({
+            "gap_index": gi, "start": start, "end": end,
+            "block": block, "resources": list(case.required_resources),
+            "reported_at": case.reported_at,
+        })
+        for r in case.required_resources:
+            bookings.setdefault(r, []).append((start, end, case.case_id))
+
+    def _attempt_rescue(case, profile, required_minutes, day_tag) -> bool:
+        nonlocal rescued
+        if rescued >= MAX_RESCUES_PER_DAY:
+            return False
+        for i, gap in enumerate(gaps):
+            candidate_start = max(gap["start"], case.reported_at)
+            candidate_end = candidate_start + timedelta(minutes=required_minutes)
+            if candidate_end > gap["end"]:
+                continue
+            for u in list(used):
+                if not (u["start"] < candidate_end and u["end"] > candidate_start):
+                    continue
+                u_index = used.index(u)
+                if not _time_free(candidate_start, candidate_end, ignore_index=u_index, gap_index=i):
+                    continue
+                duration = u["end"] - u["start"]
+                old_bookings = [(r, bk) for r in u["resources"] for bk in bookings.get(r, [])
+                                if bk[2] == u["block"].task_id]
+                for j, alt_gap in enumerate(gaps):
+                    if j == i:
+                        continue
+                    alt_start = max(alt_gap["start"], u["reported_at"])
+                    alt_end = alt_start + duration
+                    if alt_end > alt_gap["end"]:
+                        continue
+                    if not _time_free(alt_start, alt_end, ignore_index=u_index, gap_index=j):
+                        continue
+                    # Apply the move first (bookings at the new slot), validate the
+                    # whole scene, then revert if the move violates resource or
+                    # parallel-track capacity anywhere.
+                    for r, bk in old_bookings:
+                        bookings[r].remove(bk)
+                    new_bookings = []
+                    for r in u["resources"]:
+                        nb = (alt_start, alt_end, u["block"].task_id)
+                        bookings[r].append(nb)
+                        new_bookings.append((r, nb))
+                    scene_ok = (
+                        _resources_free(case.required_resources, candidate_start, candidate_end)
+                        and _resources_free(u["resources"], alt_start, alt_end,
+                                            ignore_case_id=u["block"].task_id)
+                    )
+                    if not scene_ok:
+                        for r, nb in new_bookings:
+                            bookings[r].remove(nb)
+                        for r, bk in old_bookings:
+                            bookings[r].append(bk)
+                        continue
+                    orig_slot_start = u["start"]
+                    u["gap_index"], u["start"], u["end"] = j, alt_start, alt_end
+                    blk = u["block"]
+                    setup_delta = blk.scheduled_start - orig_slot_start
+                    blk.scheduled_start = alt_start + setup_delta
+                    blk.scheduled_end = blk.scheduled_start + timedelta(minutes=blk.duration_minutes)
+                    blk.window_id = f"GAP-{alt_gap['start'].strftime('%H%M')}"
+                    _place(case, profile, (0.0, i, candidate_start, candidate_end), day_tag)
+                    rescued += 1
+                    return True
+        return False
+
+    day_tag = f"d{day_idx}"
+    for case in ordered_cases:
+        profile = profiles.get(case.procedure_profile_id)
+        if profile is None:
+            raise HTTPException(status_code=422, detail=f"Unknown procedure profile: {case.procedure_profile_id}")
+        required_minutes = case.estimated_work_minutes + profile.minimum_setup_minutes + profile.minimum_clearance_minutes
+
+        slot = _find_slot(case, required_minutes)
+        if slot is not None:
+            _place(case, profile, slot, day_tag)
+            continue
+
+        if _attempt_rescue(case, profile, required_minutes, day_tag):
+            continue
+
+        resource_blocked = False
+        for gi, gap in enumerate(gaps):
+            candidate_start = max(gap["start"], case.reported_at)
+            candidate_end = candidate_start + timedelta(minutes=required_minutes)
+            if candidate_end <= gap["end"] and _time_free(candidate_start, candidate_end, gap_index=gi):
+                if not _resources_free(case.required_resources, candidate_start, candidate_end):
+                    resource_blocked = True
+                    break
+        reason = (
+            "No crew/resource capacity in any gap — the required resource(s) are "
+            "double-booked in every feasible slot."
+            if resource_blocked else
+            "No safe gap in the saved timetable is long enough for this work."
+        )
+        day_blocks.append(_make_block(case, profile, datetime.min, datetime.min, day_tag,
+                                      ScheduleStatus.DEFERRED, "NONE", reason))
+
+    return day_blocks, {"rescued": rescued}
+
+
+def _compute_replay_metrics(request: ReplayOptimizationRequest, schedule: List[ScheduledBlock],
+                            ml_scores: dict, due_counts: dict, total_demands: int,
+                            days: int, gaps_by_day: Dict[int, List[dict]],
+                            resource_conflicts: int) -> dict:
+    """Real KPIs for the produced schedule, replacing the single scale-invariant
+    assetAvailabilityGain float as the headline measure."""
+    scheduled = [b for b in schedule if b.status == ScheduleStatus.SCHEDULED]
+
+    delayed_movements: set = set()
+    usable_minutes = 0
+    used_minutes = 0
+    for d in range(days):
+        day_gaps = gaps_by_day.get(d, [])
+        usable_minutes += sum(int((g["end"] - g["start"]).total_seconds() / 60) for g in day_gaps)
+        used_minutes += sum(b.duration_minutes for b in scheduled if f"-d{d}" in b.block_id)
+        for b in scheduled:
+            if f"-d{d}" not in b.block_id:
+                continue
+            for g in day_gaps:
+                if g["start"] <= b.scheduled_start < g["end"]:
+                    delayed_movements.update(g["occupied_by_train_ids"])
+                    break
+
+    total_ml = sum(ml_scores.get(c.case_id, 0.0) * due_counts.get(c.case_id, 0)
+                   for c in request.maintenance_cases)
+    scheduled_ml = sum(ml_scores.get(b.task_id, 0.0) for b in scheduled)
+    utilization = round((used_minutes / usable_minutes * 100), 1) if usable_minutes else 0.0
+
+    return {
+        "scheduledDemands": len(scheduled),
+        "totalDemands": total_demands,
+        "deadlinesMetPct": round(len(scheduled) / total_demands * 100, 1) if total_demands else 0.0,
+        "weightedDeadlinesMetPct": round(scheduled_ml / total_ml * 100, 1) if total_ml else 0.0,
+        "trainsDelayed": len(delayed_movements),
+        "capacityUtilizationPct": utilization,
+        "resourceConflicts": resource_conflicts,
+    }
+
+
 def optimize_replay(request: ReplayOptimizationRequest) -> OptimizationResult:
     """
     Schedule procedure-driven cases into gaps derived from a frozen timetable,
     across the requested planning horizon (daily / weekly / monthly).
 
-    Each maintenance case is a repeatable work item with a recurrence interval.
-    Within the horizon, every day's timetable gap is a candidate slot; a case is
-    scheduled on a day when a safe gap exists and none is already reserved.
-
-    Cases are ranked by the trained ML prioritizer (calibrated [0,1] score),
-    falling back to a heuristic so the engine never breaks without sklearn.
+    Cases are ranked by the trained ML prioritizer (calibrated [0,1] score).
+    Placement is risk-aware best-fit with a bounded rescue pass, resource capacity
+    is enforced per slot, and cross-day state (section risk carry-over + previous
+    day deferrals) couples the weekly/monthly horizons.
     """
     profiles = {profile.id: profile for profile in request.procedure_profiles}
     days = _horizon_planning_days(request)
     ml_scores, _ml_stats = _score_replay_cases(request.maintenance_cases)
+    resource_units = _resource_units(request.maintenance_cases, request.replay_context.resource_catalog)
 
-    # Recurrence: a case is demanded once per day of the horizon (a daily demand
-    # pattern). This models recurring/weekly/monthly maintenance load honestly.
     horizon_days = list(range(days))
-    total_requests = len(request.maintenance_cases) * days
+    due_counts = {
+        case.case_id: sum(1 for d in horizon_days if _case_due(case, d))
+        for case in request.maintenance_cases
+    }
+    total_requests = sum(due_counts.values())
 
     schedule: List[ScheduledBlock] = []
     scheduled_count = 0
+    sections_risk: Dict[str, float] = {}
+    deferred_prev: set = set()
+    gaps_by_day: Dict[int, List[dict]] = {}
+    resource_conflicts = 0
 
     for d in horizon_days:
         day_offset = timedelta(days=d)
-        used: List[tuple] = []
 
         # Build a day-shifted copy of the request so timetable + gaps reflect day `d`.
         shifted = request.model_copy(deep=True)
@@ -622,74 +954,47 @@ def optimize_replay(request: ReplayOptimizationRequest) -> OptimizationResult:
             c.reported_at = c.reported_at + day_offset
 
         gaps = _derive_replay_gaps(shifted)
-        day_blocks: List[ScheduledBlock] = []
+        gaps_by_day[d] = gaps
 
-        for case in sorted(
-            shifted.maintenance_cases,
-            key=lambda c: (-ml_scores.get(c.case_id, 0.0), _replay_priority(c)),
-        ):
-            profile = profiles.get(case.procedure_profile_id)
-            if profile is None:
-                raise HTTPException(status_code=422, detail=f"Unknown procedure profile: {case.procedure_profile_id}")
-            required = case.estimated_work_minutes + profile.minimum_setup_minutes + profile.minimum_clearance_minutes
-            chosen = None
-            for gap in gaps:
-                candidate_start = max(gap["start"], case.reported_at)
-                candidate_end = candidate_start + timedelta(minutes=required)
-                overlaps_reserved = any(candidate_start < end and candidate_end > start for start, end in used)
-                if candidate_end <= gap["end"] and not overlaps_reserved:
-                    chosen = (candidate_start, candidate_end)
-                    break
+        eligible = [c for c in shifted.maintenance_cases if _case_due(c, d)]
+        ordered = sorted(eligible, key=lambda c: _day_order_key(c, ml_scores, sections_risk, deferred_prev))
+        day_blocks, stats = _place_day(d, ordered, gaps, profiles, ml_scores, resource_units)
 
-            priority = {"emergency": "Critical", "urgent": "High", "planned": "Medium"}.get(case.urgency, "Low")
-            day_tag = f"d{d}"
-            if chosen:
-                access = []
-                if profile.traffic_block_required: access.append("temporary track closure")
-                if profile.power_block_required: access.append("electrical isolation")
-                if profile.disconnection_notice_required: access.append("equipment disconnection notice")
-                if profile.permit_to_work_required: access.append("formal safety clearance")
-                work_start = chosen[0] + timedelta(minutes=profile.minimum_setup_minutes)
-                work_end = work_start + timedelta(minutes=case.estimated_work_minutes)
-                block = ScheduledBlock(
-                    block_id=f"RPL-{case.case_id}-{day_tag}", task_id=case.case_id, department=case.department,
-                    track_section=case.section_id, location_km=case.location_reference,
-                    scheduled_start=work_start, scheduled_end=work_end,
-                    duration_minutes=case.estimated_work_minutes, priority=priority,
-                    criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
-                    window_id=f"GAP-{chosen[0].strftime('%H%M')}", status=ScheduleStatus.SCHEDULED,
-                    conflict_reason=f"Safety requirements: {', '.join(access)}."
-                )
-                schedule.append(block)
-                day_blocks.append(block)
-                used.append(chosen)
-                scheduled_count += 1
-            else:
-                block = ScheduledBlock(
-                    block_id=f"RPL-{case.case_id}-{day_tag}-DEFERRED", task_id=case.case_id, department=case.department,
-                    track_section=case.section_id, location_km=case.location_reference,
-                    scheduled_start=datetime.min, scheduled_end=datetime.min,
-                    duration_minutes=case.estimated_work_minutes, priority=priority,
-                    criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
-                    window_id="NONE", status=ScheduleStatus.DEFERRED,
-                    conflict_reason="No safe gap in the saved timetable is long enough for this work."
-                )
-                schedule.append(block)
-                day_blocks.append(block)
+        schedule.extend(day_blocks)
+        scheduled_today = [b for b in day_blocks if b.status == ScheduleStatus.SCHEDULED]
+        scheduled_count += len(scheduled_today)
+        for b in day_blocks:
+            if b.status == ScheduleStatus.DEFERRED and "resource" in (b.conflict_reason or "").lower():
+                resource_conflicts += 1
+
+        # Cross-day coupling: a section worked (or deferred) today stays on the
+        # risk radar for the following days.
+        for b in scheduled_today:
+            sections_risk[b.track_section] = min(
+                sections_risk.get(b.track_section, 0.0) + ml_scores.get(b.task_id, 0.0) * SECTION_RISK_WEIGHT,
+                SECTION_RISK_CAP,
+            )
+        deferred_prev = {b.task_id for b in day_blocks if b.status == ScheduleStatus.DEFERRED}
 
     # Asset availability gain across the horizon: share of each day's usable
-    # planning window consumed by scheduled maintenance (scale-invariant).
+    # planning window consumed by scheduled maintenance (kept for compatibility;
+    # real KPIs live in `metrics`).
     availability_gain = 0.0
     if schedule:
         horizon_minutes = max(1, (request.replay_context.planning_end - request.replay_context.planning_start).total_seconds() / 60)
         total_work = sum(b.duration_minutes for b in schedule if b.status == ScheduleStatus.SCHEDULED)
         availability_gain = round(min((total_work / (days * horizon_minutes)) * 100, 100.0), 1)
 
+    metrics = _compute_replay_metrics(
+        request, schedule, ml_scores, due_counts, total_requests, days, gaps_by_day, resource_conflicts,
+    )
+
     return OptimizationResult(
         total_tasks=total_requests, scheduled_tasks=scheduled_count,
         shadow_blocks=0, conflicts_detected=total_requests - scheduled_count,
         asset_availability_gain=availability_gain, schedule=schedule,
         ml_info={"scores": ml_scores, "stats": _ml_stats},
+        metrics=metrics,
     )
 
 
@@ -869,7 +1174,9 @@ def _replay_response(request: ReplayOptimizationRequest, result: OptimizationRes
         "sectionId": request.train_movements[0].section_id if request.train_movements else "unknown",
         "start": gap["start"].isoformat(), "end": gap["end"].isoformat(),
         "usableMinutes": int((gap["end"] - gap["start"]).total_seconds() / 60),
-        "headwayBufferMinutes": 15, "occupiedByTrainIds": gap["occupied_by_train_ids"],
+        "headwayBufferMinutes": gap.get("headwayMinutes", HEADWAY_DEFAULT_MINUTES),
+        "direction": gap.get("direction", "any"),
+        "occupiedByTrainIds": gap["occupied_by_train_ids"],
     } for gap in gaps]
 
     # ── ML decision intelligence ────────────────────────────────────────────
@@ -964,6 +1271,7 @@ def _replay_response(request: ReplayOptimizationRequest, result: OptimizationRes
         "dayBreakdown": day_breakdown,
         "mlStats": ml_stats,
         "triage": triage,
+        "metrics": result.metrics or {},
     }
 
 
