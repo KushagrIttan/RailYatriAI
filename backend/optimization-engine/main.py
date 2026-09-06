@@ -28,6 +28,14 @@ from collections import defaultdict
 
 logger = logging.getLogger("railblock")
 
+class _UnavailablePriorityModel:
+    trained = False
+    metrics = {}
+
+
+PriorityModel = _UnavailablePriorityModel
+build_features = None
+
 # Optional ML prioritization module (kept import-safe so the engine still runs
 # if scikit-learn or the trained model is unavailable).
 try:

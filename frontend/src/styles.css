@@ -63,8 +63,8 @@
   --popover: #ffffff;
   --popover-foreground: #111827;
 
-  /* Soft indigo — like the reference site purple */
-  --primary: #6366f1;
+  /* Clean blue */
+  --primary: #2563eb;
   --primary-foreground: #ffffff;
 
   --secondary: #f3f4f6;
@@ -73,8 +73,8 @@
   --muted: #f3f4f6;
   --muted-foreground: #6b7280;
 
-  --accent: #eef2ff;
-  --accent-foreground: #4338ca;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
 
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
@@ -87,13 +87,13 @@
 
   --border: #e5e7eb;
   --input: #e5e7eb;
-  --ring: #6366f1;
+  --ring: #2563eb;
 
   --grid-line: #f3f4f6;
 
   /* Train class colors — readable on white */
-  --freight: #6366f1;
-  --express: #8b5cf6;
+  --freight: #2563eb;
+  --express: #0ea5e9;
   --suburban: #0ea5e9;
 
   --chart-1: var(--freight);

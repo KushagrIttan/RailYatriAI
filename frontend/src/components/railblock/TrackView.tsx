@@ -10,9 +10,9 @@ import { SLOT_COUNT } from "@/lib/railblock/service";
 import type { ShadowBlock, Train } from "@/lib/railblock/types";
 
 const CLASS_STYLE: Record<Train["trainClass"], string> = {
-  freight: "border-indigo-200 bg-indigo-50 text-indigo-600",
-  express: "border-violet-200 bg-violet-50 text-violet-600",
-  suburban: "border-sky-200 bg-sky-50 text-sky-600",
+  freight: "border-gray-400 bg-gray-200 text-gray-700",
+  express: "border-blue-400 bg-blue-100 text-blue-700",
+  suburban: "border-sky-400 bg-sky-100 text-sky-700",
 };
 
 function sectionLabel(section: string) {
@@ -41,6 +41,15 @@ export function TrackView({
   const slots = Array.from({ length: SLOT_COUNT }, (_, i) => i);
   const nowSlot = Math.round((windowOffset / 100) * (SLOT_COUNT - 1));
 
+  const windowLabel = (() => {
+    const totalSlots = SLOT_COUNT - 1;
+    const slot = Math.round((windowOffset / 100) * totalSlots);
+    const anchorHour = 8;
+    const hours = anchorHour + Math.floor(slot / 4);
+    const minutes = (slot % 4) * 15;
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  })();
+
   const activeBlock =
     shadowBlocks.find((sb) => sb.conflictId === selectedConflictId) ??
     shadowBlocks[0] ??
@@ -49,18 +58,18 @@ export function TrackView({
   return (
     <div className="panel-surface overflow-hidden">
       {/* Section header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-gray-50/70 px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-gray-100 px-5 py-3">
         <div className="flex items-center gap-2">
           <Wrench className="size-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">
+          <h2 className="text-base font-semibold text-foreground tracking-tight">
             Suggested maintenance times & track occupancy
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
+          <span className="rounded-full bg-gray-200 px-2.5 py-0.5 text-[10px] font-semibold text-gray-700">
             3 Simulated Situations
           </span>
-          <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-[10px] font-medium text-success border border-green-200/60">
+          <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-[10px] font-medium text-green-800 border border-green-300">
             Saved timetable
           </span>
         </div>
@@ -75,10 +84,10 @@ export function TrackView({
           const isSelected = activeBlock?.id === sb.id;
           const statusBadge =
             sb.status === "scheduled"
-              ? "border-green-300 bg-green-50/70 text-green-700"
+              ? "border-green-400 bg-green-100 text-green-800"
               : sb.status === "blocked"
-                ? "border-red-300 bg-red-50/70 text-red-700"
-                : "border-amber-300 bg-amber-50/70 text-amber-700";
+                ? "border-red-400 bg-red-100 text-red-800"
+                : "border-amber-400 bg-amber-100 text-amber-800";
 
           const icon =
             sb.status === "scheduled" ? (
@@ -140,7 +149,7 @@ export function TrackView({
           }}
         >
           <span className="absolute -top-0.5 -translate-x-1/2 rounded bg-success px-1.5 py-0.5 text-[8px] font-bold text-white shadow-xs">
-            NOW
+            {windowLabel}
           </span>
         </div>
 
@@ -184,20 +193,20 @@ export function TrackView({
 
                   if (sb.status === "scheduled") {
                     styleClass = isSelected
-                      ? "border-green-600 bg-green-100/90 text-green-900 ring-2 ring-green-600 shadow-md z-25"
-                      : "border-green-400 bg-green-50/85 text-green-800 hover:border-green-500";
+                      ? "border-green-600 bg-green-200 text-green-900 ring-2 ring-green-600 shadow-md z-25"
+                      : "border-green-400 bg-green-100 text-green-800 hover:border-green-500";
                     icon = <CheckCircle2 className="size-3 shrink-0 text-green-700" />;
                     statusTag = "✅ Approved Window";
                   } else if (sb.status === "blocked") {
                     styleClass = isSelected
-                      ? "border-2 border-dashed border-red-600 bg-red-100/95 text-red-950 ring-2 ring-red-500 shadow-md z-25"
-                      : "border border-dashed border-red-400 bg-red-50/80 text-red-800 hover:border-red-500";
+                      ? "border-2 border-dashed border-red-600 bg-red-200 text-red-950 ring-2 ring-red-500 shadow-md z-25"
+                      : "border border-dashed border-red-400 bg-red-100 text-red-800 hover:border-red-500";
                     icon = <AlertOctagon className="size-3 shrink-0 text-red-600" />;
                     statusTag = "❌ Blocked by EMU";
                   } else {
                     styleClass = isSelected
-                      ? "border-2 border-dashed border-amber-600 bg-amber-100/95 text-amber-950 ring-2 ring-amber-500 shadow-md z-25"
-                      : "border border-dashed border-amber-400 bg-amber-50/80 text-amber-900 hover:border-amber-500";
+                      ? "border-2 border-dashed border-amber-600 bg-amber-200 text-amber-950 ring-2 ring-amber-500 shadow-md z-25"
+                      : "border border-dashed border-amber-400 bg-amber-100 text-amber-900 hover:border-amber-500";
                     icon = <Clock3 className="size-3 shrink-0 text-amber-600" />;
                     statusTag = "⏳ Deferred (60m)";
                   }
@@ -281,10 +290,10 @@ export function TrackView({
         <div
           className={`flex items-start gap-2.5 border-t px-5 py-2.5 text-xs transition-colors ${
             activeBlock.status === "scheduled"
-              ? "border-green-200 bg-green-50/60 text-green-950"
+              ? "border-green-300 bg-green-100 text-green-900"
               : activeBlock.status === "blocked"
-                ? "border-red-200 bg-red-50/60 text-red-950"
-                : "border-amber-200 bg-amber-50/60 text-amber-950"
+                ? "border-red-300 bg-red-100 text-red-900"
+                : "border-amber-300 bg-amber-100 text-amber-900"
           }`}
         >
           {activeBlock.status === "scheduled" ? (
@@ -308,7 +317,7 @@ export function TrackView({
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-1.5 border-t border-border bg-gray-50/40 px-5 py-2 text-[10px] text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-1.5 border-t border-border bg-gray-100 px-5 py-2 text-[10px] text-muted-foreground">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-sm bg-green-500" />
@@ -332,15 +341,15 @@ export function TrackView({
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="flex items-center gap-1">
-            <TrainFront className="size-3 text-indigo-400" />
+            <TrainFront className="size-3 text-gray-500" />
             Freight
           </span>
           <span className="flex items-center gap-1">
-            <TrainFront className="size-3 text-violet-400" />
+            <TrainFront className="size-3 text-blue-500" />
             Express
           </span>
           <span className="flex items-center gap-1">
-            <TrainFront className="size-3 text-sky-400" />
+            <TrainFront className="size-3 text-sky-500" />
             Suburban
           </span>
         </div>

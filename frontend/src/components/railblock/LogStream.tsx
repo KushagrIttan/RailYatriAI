@@ -19,8 +19,8 @@ export function LogStream({ logs }: { logs: LogEntry[] }) {
     <div className="panel-surface overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border bg-gray-50/60 px-4 py-2.5">
         <Terminal className="size-3.5 text-primary" />
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Activity log
+        <span className="text-sm font-semibold text-foreground tracking-tight">
+          Activity Log
         </span>
         <span className="animate-led ml-auto size-2 rounded-full bg-success" />
       </div>
