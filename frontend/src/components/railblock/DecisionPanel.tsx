@@ -28,9 +28,9 @@ export function DecisionPanel({
 
   if (!conflict || !recommendation) {
     return (
-      <div className="panel-surface flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+      <div className="panel-surface flex flex-col items-center justify-center gap-2.5 px-5 py-12 text-center">
         <ShieldCheck className="size-8 text-success" />
-        <p className="text-sm font-medium">All maintenance requests reviewed</p>
+        <p className="text-sm font-medium">All requests reviewed</p>
         <p className="text-xs text-muted-foreground">
           No maintenance requests need a decision in this saved scenario.
         </p>
@@ -42,75 +42,75 @@ export function DecisionPanel({
 
   return (
     <div className="space-y-3">
-      <div
-        className={`panel-surface relative overflow-hidden px-4 py-3 ${
-          critical ? "border-destructive/50" : "border-warning/50"
-        }`}
-      >
-        <div
-          className={`absolute inset-x-0 top-0 h-px ${critical ? "bg-destructive" : "bg-warning"}`}
-        />
-        <div className="flex items-start gap-2">
-          <AlertOctagon className={`mt-0.5 size-4 ${critical ? "animate-led text-destructive" : "text-warning"}`} />
+      {/* Conflict card */}
+      <div className="panel-surface px-5 py-4">
+        <div className="flex items-start gap-2.5">
+          <AlertOctagon
+            className={`mt-0.5 size-4 shrink-0 ${critical ? "animate-led text-destructive" : "text-warning"}`}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold">Maintenance request</span>
               <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                  critical
-                    ? "bg-destructive/15 text-destructive"
-                    : "bg-warning/15 text-warning"
+                className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                  critical ? "bg-red-50 text-destructive" : "bg-amber-50 text-warning"
                 }`}
               >
                 {conflict.severity}
               </span>
-              <span className="ml-auto text-[10px] text-muted-foreground">Saved scenario</span>
+              <span className="ml-auto text-[10px] text-muted-foreground/60">Saved scenario</span>
             </div>
-            <p className="num mt-1 text-xs text-foreground/90">
+            <p className="mt-1.5 text-xs text-muted-foreground">
               How this work fits around scheduled trains
             </p>
-            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{conflict.description}</p>
+            <p className="mt-2 text-xs leading-relaxed text-foreground/80">{conflict.description}</p>
           </div>
         </div>
       </div>
 
-      <div className="panel-surface px-4 py-3">
+      {/* Recommendation card */}
+      <div className="panel-surface px-5 py-4">
         <button
           onClick={() => setExpanded((v) => !v)}
           className="flex w-full items-center gap-2 text-left"
         >
-          <CircuitBoard className="size-4 text-success" />
-          <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          <CircuitBoard className="size-4 text-primary" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Suggested plan
           </span>
-          <span className="num ml-auto rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">
-            Confidence: {(recommendation.confidence * 100).toFixed(0)}%
+          <span className="ml-auto rounded-full bg-green-50 px-2.5 py-0.5 text-[10px] font-semibold text-success">
+            {(recommendation.confidence * 100).toFixed(0)}% confidence
           </span>
         </button>
 
-        <p className="mt-2 text-sm font-medium">{recommendation.strategy}</p>
-        <p className="mt-1 text-xs text-muted-foreground">This suggestion uses a gap in the saved timetable and the work's safety requirements.</p>
+        <p className="mt-2 text-sm font-medium text-foreground">{recommendation.strategy}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Based on a gap in the saved timetable and safety requirements.
+        </p>
 
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        {/* Confidence bar */}
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
           <div
-            className="h-full rounded-full bg-success transition-all duration-1000 ease-out"
+            className="h-full rounded-full bg-success transition-all duration-700"
             style={{ width: `${recommendation.confidence * 100}%` }}
           />
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <Metric label="Estimated delay avoided" value={`${recommendation.delaySavedMinutes.toFixed(1)}m`} tone="text-success" />
-          <Metric label="Extra timetable space" value={`+${recommendation.throughputDeltaPct.toFixed(1)}%`} tone="text-suburban" />
+        {/* Metrics row */}
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Metric label="Delay avoided" value={`${recommendation.delaySavedMinutes.toFixed(1)}m`} tone="text-success" />
+          <Metric label="Timetable space" value={`+${recommendation.throughputDeltaPct.toFixed(1)}%`} tone="text-primary" />
           <Metric label="Planning time" value={`${recommendation.computeMs}ms`} tone="text-muted-foreground" />
         </div>
 
+        {/* Steps */}
         {expanded && (
-          <ol className="mt-3 space-y-2 border-l border-border pl-3">
+          <ol className="mt-4 space-y-2 border-l-2 border-border pl-4">
             {recommendation.steps.map((s, i) => (
               <li key={i} className="relative">
-                <span className="absolute -left-[1.05rem] top-1.5 size-1.5 rounded-full bg-success" />
+                <span className="absolute -left-[1.2rem] top-1.5 size-2 rounded-full bg-primary/30" />
                 <p className="num text-xs font-semibold">
-                  {s.trainNumber} — <span className="font-normal text-foreground/85">{s.action}</span>
+                  {s.trainNumber} — <span className="font-normal text-foreground/80">{s.action}</span>
                 </p>
                 <p className="text-[11px] text-muted-foreground">{s.detail}</p>
               </li>
@@ -118,30 +118,28 @@ export function DecisionPanel({
           </ol>
         )}
 
+        {/* Simulation result */}
         {simulation && (
-          <div className="mt-3 rounded-md border border-suburban/40 bg-suburban/10 px-3 py-2">
-            <p className="num text-[11px] text-suburban">{simulation}</p>
+          <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
+            <p className="num text-xs text-sky-700">{simulation}</p>
           </div>
         )}
 
+        {/* Actions */}
         {rejectMode ? (
-          <div className="mt-4 flex w-full flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+          <div className="mt-4 flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-4">
             <input
               type="text"
               placeholder="Why does this suggested time not work?"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <div className="flex gap-2">
               <Button
-                onClick={() => {
-                  onReject(rejectReason);
-                  setRejectMode(false);
-                  setRejectReason("");
-                }}
+                onClick={() => { onReject(rejectReason); setRejectMode(false); setRejectReason(""); }}
                 disabled={!rejectReason.trim()}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                className="bg-destructive text-white hover:bg-destructive/90"
               >
                 Record rejection
               </Button>
@@ -155,26 +153,32 @@ export function DecisionPanel({
             <Button
               onClick={onApprove}
               disabled={approving !== "idle"}
-              className="relative flex-1 overflow-hidden bg-success text-success-foreground hover:bg-success/90"
+              className="relative flex-1 overflow-hidden bg-success text-white hover:bg-success/90"
             >
               {approving === "working" && (
                 <span className="animate-sweep absolute inset-y-0 w-1/3 bg-white/20" />
               )}
               {approving === "done" ? (
-                <>
-                  <CheckCircle2 className="size-4" /> Plan Applied
-                </>
+                <><CheckCircle2 className="size-4" /> Plan Applied</>
               ) : approving === "working" ? (
                 "Recording…"
               ) : (
-                "Accept suggested plan"
+                "Accept plan"
               )}
             </Button>
-            <Button variant="outline" onClick={() => setRejectMode(true)} className="border-destructive/50 text-destructive hover:bg-destructive/10">
-              Reject suggestion
+            <Button
+              variant="outline"
+              onClick={() => setRejectMode(true)}
+              className="border-red-200 text-destructive hover:bg-red-50"
+            >
+              Reject
             </Button>
-            <Button variant="outline" onClick={onOverride} className="border-warning/50 text-warning hover:bg-warning/10">
-              <SlidersHorizontal className="size-4" /> Adjust manually
+            <Button
+              variant="outline"
+              onClick={onOverride}
+              className="border-amber-200 text-warning hover:bg-amber-50"
+            >
+              <SlidersHorizontal className="size-4" /> Adjust
             </Button>
             <Button variant="ghost" onClick={onSimulate} className="text-muted-foreground">
               <FlaskConical className="size-4" /> Check impact
@@ -188,8 +192,8 @@ export function DecisionPanel({
 
 function Metric({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-md border border-border bg-background/50 px-2 py-1.5">
-      <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</div>
+    <div className="rounded-lg bg-gray-50 px-3 py-2">
+      <div className="text-[9px] uppercase tracking-wide text-muted-foreground/60">{label}</div>
       <div className={`num text-sm font-semibold ${tone}`}>{value}</div>
     </div>
   );
