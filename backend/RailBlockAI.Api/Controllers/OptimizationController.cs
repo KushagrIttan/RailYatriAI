@@ -32,6 +32,45 @@ public class OptimizationController : ControllerBase
     {
         _logger.LogInformation("=== Replay optimization request received (horizon: {Horizon}, days: {Days}) ===", horizon ?? "daily", days ?? 1);
 
+        var (json, error) = await ForwardReplayAsync("replay/optimize", horizon, days);
+        if (error != null)
+        {
+            return error;
+        }
+
+        DataStore.LastOptimizedSchedule = json;
+        _logger.LogInformation("Replay optimization complete.");
+        return Content(json, "application/json");
+    }
+
+    /// <summary>
+    /// Triage-only view of the replay plan: forwards the same bundle to the Python
+    /// /replay/triage endpoint and returns just the rollup + ranked item list. Useful
+    /// for feeding a triage queue without pulling the full schedule payload.
+    /// </summary>
+    [HttpGet("triage")]
+    public async Task<IActionResult> GetTriage(
+        [FromQuery] string? horizon = null,
+        [FromQuery] int? days = null)
+    {
+        _logger.LogInformation("=== Triage request received (horizon: {Horizon}, days: {Days}) ===", horizon ?? "daily", days ?? 1);
+
+        var (json, error) = await ForwardReplayAsync("replay/triage", horizon, days);
+        if (error != null)
+        {
+            return error;
+        }
+
+        return Content(json, "application/json");
+    }
+
+    /// <summary>
+    /// Loads the frozen replay bundle, injects the planning horizon, forwards the
+    /// bundle to the given Python engine endpoint, and returns the raw JSON response.
+    /// </summary>
+    private async Task<(string? Json, IActionResult? Error)> ForwardReplayAsync(
+        string pythonEndpoint, string? horizon, int? days)
+    {
         try
         {
             using var replayBundle = await _replayBundleService.LoadAsync(HttpContext.RequestAborted);
@@ -58,7 +97,7 @@ public class OptimizationController : ControllerBase
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(30);
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:8000/replay/optimize")
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"http://localhost:8000/{pythonEndpoint}")
             {
                 Content = new StringContent(payload!.ToJsonString(), System.Text.Encoding.UTF8, "application/json")
             };
@@ -67,36 +106,34 @@ public class OptimizationController : ControllerBase
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Step 2/3 FAILED — Python engine returned {StatusCode}: {Error}",
-                    (int)response.StatusCode, errorContent);
-                return StatusCode((int)response.StatusCode,
-                    $"Python optimization engine returned an error ({(int)response.StatusCode}): {errorContent}");
+                _logger.LogError("Python engine returned {StatusCode} for {Endpoint}: {Error}",
+                    (int)response.StatusCode, pythonEndpoint, errorContent);
+                return (null, StatusCode((int)response.StatusCode,
+                    $"Python optimization engine returned an error ({(int)response.StatusCode}): {errorContent}"));
             }
 
             var resultJson = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
-            DataStore.LastOptimizedSchedule = resultJson;
-            _logger.LogInformation("Replay optimization complete.");
-            return Content(resultJson, "application/json");
+            return (resultJson, null);
         }
         catch (FileNotFoundException ex)
         {
             _logger.LogError(ex, "Replay bundle is missing.");
-            return StatusCode(503, "Replay bundle is unavailable. Restore data/replay/dli-gzb/replay_bundle.json.");
+            return (null, StatusCode(503, "Replay bundle is unavailable. Restore data/replay/dli-gzb/replay_bundle.json."));
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Could not reach the Python optimization engine at http://localhost:8000. Is it running?");
-            return StatusCode(503, "Cannot connect to the Python optimization engine (http://localhost:8000). Start it with: cd backend/optimization-engine && python main.py");
+            return (null, StatusCode(503, "Cannot connect to the Python optimization engine (http://localhost:8000). Start it with: cd backend/optimization-engine && python main.py"));
         }
         catch (TaskCanceledException)
         {
             _logger.LogError("Request to Python engine timed out after 30 seconds.");
-            return StatusCode(504, "Python optimization engine timed out after 30 seconds.");
+            return (null, StatusCode(504, "Python optimization engine timed out after 30 seconds."));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error during optimization");
-            return StatusCode(500, ex.Message);
+            return (null, StatusCode(500, ex.Message));
         }
     }
 

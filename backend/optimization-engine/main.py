@@ -131,6 +131,8 @@ class OptimizationResult(BaseModel):
     conflicts_detected: int
     asset_availability_gain: float
     schedule: List[ScheduledBlock]
+    # Replay path only: {scores: {case_id: float}} filled by optimize_replay.
+    ml_info: Optional[dict] = None
 
 class OptimizationRequest(BaseModel):
     tasks: List[MaintenanceTask]
@@ -461,6 +463,91 @@ def _replay_priority(case: MaintenanceCase) -> int:
     return {"emergency": 0, "urgent": 1, "planned": 2}.get(case.urgency, 3)
 
 
+_REPLAY_URGENCY_PRIORITY = {"emergency": "Critical", "urgent": "High", "planned": "Medium"}
+
+
+def _replay_case_features(case: MaintenanceCase) -> dict:
+    """Map a replay case to the ML feature dict (replay bundles carry no defects)."""
+    return {
+        "priority": _REPLAY_URGENCY_PRIORITY.get(case.urgency, "Low"),
+        "department": case.department,
+        "task_type": "Corrective Maintenance"
+        if case.urgency in ("emergency", "urgent")
+        else "Preventive Maintenance",
+        "criticality_score": {"emergency": 0.95, "urgent": 0.8, "planned": 0.5}.get(case.urgency, 0.3),
+        "track_section": case.section_id,
+        "required_resources": case.required_resources,
+        "dependencies": [],
+        "duration_minutes": case.estimated_work_minutes,
+    }
+
+
+def _replay_heuristic_score(case: MaintenanceCase) -> float:
+    """Deterministic fallback when the ML model is inactive (mirrors urgency)."""
+    urgency_w = {"emergency": 0.95, "urgent": 0.75, "planned": 0.5}.get(case.urgency, 0.3)
+    duration_w = min(case.estimated_work_minutes / 180.0, 1.0)
+    return round(min(urgency_w * 0.8 + 0.2 * duration_w, 1.0), 3)
+
+
+def _ml_tier(score: float) -> str:
+    """Bucket a calibrated ML score into a triage tier.
+
+    The replay cases carry no linked defect, so age/severity features sit at
+    their floor and the model's calibrated scores compress towards ~0.2-0.7.
+    Thresholds are tuned to that honest range rather than a nominal 0-1 spread.
+    """
+    if score >= 0.6:
+        return "critical"
+    if score >= 0.4:
+        return "high"
+    return "watch"
+
+
+def _score_replay_cases(cases: List[MaintenanceCase]) -> Tuple[dict, dict]:
+    """Score every replay case with the trained ML prioritizer.
+
+    Returns (case_id -> ml_score, ml_stats). Falls back to the heuristic score
+    when the model is not active and always annotates which path was used, so
+    the UI can be honest about whether decisions were ML-driven.
+    """
+    scores: Dict[str, float] = {}
+    ml_ok = isinstance(_ML_PRIORITIZER, PriorityModel) and _ML_PRIORITIZER.trained
+    mode = "ml" if ml_ok else ("unavailable" if _ML_PRIORITIZER is None else "heuristic")
+    engine = "GradientBoosting + Isotonic (scikit-learn)" if ml_ok else "Legacy heuristic fallback"
+    scored_by_model = 0
+
+    for case in cases:
+        if ml_ok:
+            try:
+                feat = build_features(_replay_case_features(case), None, None)
+                score, used = _ML_PRIORITIZER.predict(feat)
+                scores[case.case_id] = round(float(score), 3)
+                if used:
+                    scored_by_model += 1
+            except Exception:  # noqa: BLE001 — a model failure must not block scheduling
+                scores[case.case_id] = _replay_heuristic_score(case)
+        else:
+            scores[case.case_id] = _replay_heuristic_score(case)
+
+    values = list(scores.values()) if scores else [0.0]
+    tier_counts: Dict[str, int] = {}
+    for v in values:
+        tier_counts[_ml_tier(v)] = tier_counts.get(_ml_tier(v), 0) + 1
+
+    return scores, {
+        "mode": mode,
+        "active": ml_ok,
+        "engine": engine,
+        "cases": len(scores),
+        "scoredByModel": scored_by_model,
+        "scoredByHeuristic": len(scores) - scored_by_model,
+        "scoreMin": round(min(values), 3),
+        "scoreMax": round(max(values), 3),
+        "scoreMean": round(sum(values) / len(values), 3),
+        "tiers": tier_counts,
+    }
+
+
 def _derive_replay_gaps(request: ReplayOptimizationRequest) -> List[dict]:
     """Return timetable gaps after applying a deterministic 15-minute headway."""
     start, end = request.replay_context.planning_start, request.replay_context.planning_end
@@ -512,9 +599,13 @@ def optimize_replay(request: ReplayOptimizationRequest) -> OptimizationResult:
     Each maintenance case is a repeatable work item with a recurrence interval.
     Within the horizon, every day's timetable gap is a candidate slot; a case is
     scheduled on a day when a safe gap exists and none is already reserved.
+
+    Cases are ranked by the trained ML prioritizer (calibrated [0,1] score),
+    falling back to a heuristic so the engine never breaks without sklearn.
     """
     profiles = {profile.id: profile for profile in request.procedure_profiles}
     days = _horizon_planning_days(request)
+    ml_scores, _ml_stats = _score_replay_cases(request.maintenance_cases)
 
     # Recurrence: a case is demanded once per day of the horizon (a daily demand
     # pattern). This models recurring/weekly/monthly maintenance load honestly.
@@ -541,7 +632,10 @@ def optimize_replay(request: ReplayOptimizationRequest) -> OptimizationResult:
         gaps = _derive_replay_gaps(shifted)
         day_blocks: List[ScheduledBlock] = []
 
-        for case in sorted(shifted.maintenance_cases, key=_replay_priority):
+        for case in sorted(
+            shifted.maintenance_cases,
+            key=lambda c: (-ml_scores.get(c.case_id, 0.0), _replay_priority(c)),
+        ):
             profile = profiles.get(case.procedure_profile_id)
             if profile is None:
                 raise HTTPException(status_code=422, detail=f"Unknown procedure profile: {case.procedure_profile_id}")
@@ -602,7 +696,8 @@ def optimize_replay(request: ReplayOptimizationRequest) -> OptimizationResult:
     return OptimizationResult(
         total_tasks=total_requests, scheduled_tasks=scheduled_count,
         shadow_blocks=0, conflicts_detected=total_requests - scheduled_count,
-        asset_availability_gain=availability_gain, schedule=schedule
+        asset_availability_gain=availability_gain, schedule=schedule,
+        ml_info={"scores": ml_scores, "stats": _ml_stats},
     )
 
 
@@ -616,6 +711,139 @@ def _camel_case_block(block: ScheduledBlock) -> dict:
         "status": block.status.value, "shadowBlockGroup": block.shadow_block_group,
         "conflictReason": block.conflict_reason,
     }
+
+
+def _triage_tier(score: float, status: ScheduleStatus) -> str:
+    """Map a triage score + block status to the 5-bucket triage tier.
+
+    The blended score rarely exceeds ~0.65 for replay cases (no linked defect,
+    so mlRisk sits in the 0.2-0.65 band), so thresholds are tuned to that
+    practical range rather than a nominal 0-1 spread.
+    """
+    if status == ScheduleStatus.DEFERRED and score >= 0.5:
+        return "blocked"       # high risk but no feasible gap → escalate
+    if score >= 0.5:
+        return "critical"
+    if score >= 0.3:
+        return "high"
+    if score >= 0.15:
+        return "watch"
+    return "clear"
+
+
+def _compute_triage(request: ReplayOptimizationRequest, result: OptimizationResult,
+                    ml_scores: dict) -> dict:
+    """
+    Score every scheduled block into an explainable triage queue.
+
+    triage = 0.45 * ml_risk         (trained ML prioritizer, calibrated [0,1])
+           + 0.25 * exposure        (trains bracketing the work gap, /12)
+           + 0.15 * age_since_report(days since case reported, /7)
+           + 0.15 * safety_weight   (procedure-profile safety requirements, /4)
+
+    Every component stays in the payload so the score is auditable — this is a
+    demonstrated methodology on synthetic data, not real telemetry.
+    """
+    profiles = {profile.id: profile for profile in request.procedure_profiles}
+    cases = {case.case_id: case for case in request.maintenance_cases}
+    days = _horizon_planning_days(request)
+
+    # Per-day gaps (day-shifted copies of the frozen timetable) so a scheduled
+    # block's exposure is the trains that bracket the gap it sits in.
+    day_gaps: dict[int, list] = {}
+    for d in range(days):
+        shifted = request.model_copy(deep=True)
+        shifted.replay_context.planning_start = shifted.replay_context.planning_start + timedelta(days=d)
+        shifted.replay_context.planning_end = shifted.replay_context.planning_end + timedelta(days=d)
+        for m in shifted.train_movements:
+            m.scheduled_entry = m.scheduled_entry + timedelta(days=d)
+            m.scheduled_exit = m.scheduled_exit + timedelta(days=d)
+        day_gaps[d] = _derive_replay_gaps(shifted)
+
+    planning_start = request.replay_context.planning_start
+    items: List[dict] = []
+
+    for block in result.schedule:
+        day_match = re.search(r"-d(\d+)(?:-DEFERRED)?$", block.block_id)
+        day = int(day_match.group(1)) if day_match else 0
+        case = cases.get(block.task_id)
+        profile = profiles.get(case.procedure_profile_id) if case else None
+
+        ml_risk = float(ml_scores.get(block.task_id, 0.0))
+
+        trains_impacted = 0
+        if block.status != ScheduleStatus.DEFERRED and block.scheduled_start != datetime.min:
+            for gap in day_gaps.get(day, []):
+                if gap["start"] <= block.scheduled_start < gap["end"]:
+                    trains_impacted = len(gap["occupied_by_train_ids"])
+                    break
+        exposure = round(min(trains_impacted / 12.0, 1.0), 3)
+
+        age_days = 0.0
+        if case and case.reported_at:
+            age_days = (case.reported_at - planning_start).total_seconds() / 86400.0
+        age_norm = round(min(max(age_days, 0.0) / 7.0, 1.0), 3)
+
+        safety_weight = 0.0
+        requirements: List[str] = []
+        if profile:
+            safety_weight = round(sum([
+                profile.traffic_block_required,
+                profile.power_block_required,
+                profile.disconnection_notice_required,
+                profile.permit_to_work_required,
+            ]) / 4.0, 3)
+            if profile.traffic_block_required: requirements.append("temporary track closure")
+            if profile.power_block_required: requirements.append("electrical isolation")
+            if profile.disconnection_notice_required: requirements.append("equipment disconnection notice")
+            if profile.permit_to_work_required: requirements.append("formal safety clearance")
+
+        triage_score = round(
+            0.45 * ml_risk + 0.25 * exposure + 0.15 * age_norm + 0.15 * safety_weight,
+            3,
+        )
+        status = block.status
+
+        if status == ScheduleStatus.DEFERRED:
+            recommendation = "Escalate — high risk, no safe gap" if triage_score >= 0.5 else "Wait for a safe gap"
+        elif status == ScheduleStatus.SHADOW_BLOCK:
+            recommendation = "Approach with parallel work"
+        else:
+            recommendation = "Approach now" if triage_score >= 0.5 else "On schedule — clear"
+
+        items.append({
+            "blockId": block.block_id,
+            "taskId": block.task_id,
+            "department": block.department,
+            "sectionId": block.track_section,
+            "locationKm": block.location_km,
+            "status": status.value,
+            "triageTier": _triage_tier(triage_score, status),
+            "triageScore": triage_score,
+            "components": {
+                "mlRisk": round(ml_risk, 3),
+                "exposure": exposure,
+                "ageDays": round(max(age_days, 0.0), 2),
+                "safetyWeight": safety_weight,
+            },
+            "reportedAt": case.reported_at.isoformat() if case else None,
+            "workMinutes": block.duration_minutes,
+            "requirements": requirements,
+            "recommendation": recommendation,
+            "impact": {
+                "trainsImpacted": trains_impacted,
+                "estimatedDelayMinutes": trains_impacted * 8,
+            },
+        })
+
+    items.sort(key=lambda x: -x["triageScore"])
+    rollup = {"critical": 0, "high": 0, "watch": 0, "clear": 0, "blocked": 0}
+    for item in items:
+        rollup[item["triageTier"]] = rollup.get(item["triageTier"], 0) + 1
+    rollup["backlog"] = sum(1 for i in items if i["status"] == ScheduleStatus.DEFERRED.value)
+    rollup["highestRisk"] = round(max((i["triageScore"] for i in items), default=0.0), 3)
+
+    return {"rollup": rollup, "items": items}
 
 
 def _replay_response(request: ReplayOptimizationRequest, result: OptimizationResult) -> dict:
@@ -651,6 +879,41 @@ def _replay_response(request: ReplayOptimizationRequest, result: OptimizationRes
         "usableMinutes": int((gap["end"] - gap["start"]).total_seconds() / 60),
         "headwayBufferMinutes": 15, "occupiedByTrainIds": gap["occupied_by_train_ids"],
     } for gap in gaps]
+
+    # ── ML decision intelligence ────────────────────────────────────────────
+    # One feed entry per block/case-day carrying the ML score that ranked the
+    # decision, so the UI can show live which decisions were ML-driven.
+    ml_info = result.ml_info or {}
+    ml_scores = ml_info.get("scores", {})
+    ml_stats = dict(ml_info.get("stats", {}) or {})
+    feed: List[dict] = []
+    for block in result.schedule:
+        case = cases.get(block.task_id)
+        day_match = re.search(r"-d(\d+)(?:-DEFERRED)?$", block.block_id)
+        feed.append({
+            "blockId": block.block_id,
+            "caseId": block.task_id,
+            "department": block.department,
+            "sectionId": block.track_section,
+            "label": case.description if case else block.task_id,
+            "mlScore": round(float(ml_scores.get(block.task_id, 0.0)), 3),
+            "tier": _ml_tier(float(ml_scores.get(block.task_id, 0.0))),
+            "status": block.status.value,
+            "day": int(day_match.group(1)) if day_match else 0,
+        })
+    feed.sort(key=lambda x: -x["mlScore"])
+    ml_stats["decisionFeed"] = feed
+    ml_stats["decisionsMade"] = len(feed)
+    ml_stats["scheduledHighRisk"] = sum(
+        1 for f in feed
+        if f["status"] != ScheduleStatus.DEFERRED.value and f["tier"] in ("critical", "high")
+    )
+    ml_stats["deferredCount"] = sum(
+        1 for f in feed if f["status"] == ScheduleStatus.DEFERRED.value
+    )
+
+    # ── Triage queue ─────────────────────────────────────────────────────────
+    triage = _compute_triage(request, result, ml_scores)
 
     # Per-day breakdown. Blocks carry a day tag (-dN) in their id, which is
     # reliable for both scheduled and deferred entries.
@@ -707,6 +970,8 @@ def _replay_response(request: ReplayOptimizationRequest, result: OptimizationRes
         "schedule": [_camel_case_block(block) for block in result.schedule],
         "recommendations": recommendations,
         "dayBreakdown": day_breakdown,
+        "mlStats": ml_stats,
+        "triage": triage,
     }
 
 
@@ -732,7 +997,7 @@ async def health():
     }
 
 
-@app.post("/optimize", response_model=OptimizationResult)
+@app.post("/optimize", response_model=OptimizationResult, response_model_exclude_none=True)
 async def optimize_schedule(request: OptimizationRequest):
     """
     Primary endpoint — called by the .NET OptimizationController.
@@ -765,7 +1030,26 @@ async def optimize_replay_schedule(request: ReplayOptimizationRequest):
     return _replay_response(request, optimize_replay(request))
 
 
-@app.get("/data-optimize", response_model=OptimizationResult)
+@app.post("/replay/triage")
+async def replay_triage(request: ReplayOptimizationRequest):
+    """
+    Triage-only view of the replay plan: runs the same ML-ranked optimiser and
+    returns just the rollup + ranked item list, so clients (or the .NET bridge)
+    can pull the triage queue without consuming the full schedule payload.
+    """
+    if request.replay_context.data_mode != "replay":
+        raise HTTPException(status_code=422, detail="Triage requires data_mode='replay'.")
+    if not request.maintenance_cases:
+        raise HTTPException(status_code=400, detail="Triage requires maintenance cases.")
+    response = _replay_response(request, optimize_replay(request))
+    return {
+        "rollup": response["triage"]["rollup"],
+        "items": response["triage"]["items"],
+        "mlStats": response["mlStats"],
+    }
+
+
+@app.get("/data-optimize", response_model=OptimizationResult, response_model_exclude_none=True)
 async def data_optimize():
     """
     Convenience endpoint: fetch data from the .NET API, run the engine, return the result.
@@ -789,7 +1073,7 @@ async def data_optimize():
     return engine.optimize()
 
 
-@app.get("/data-optimize-live", response_model=OptimizationResult)
+@app.get("/data-optimize-live", response_model=OptimizationResult, response_model_exclude_none=True)
 async def data_optimize_live():
     """
     Same as /data-optimize but NEVER falls back to files.
@@ -816,7 +1100,7 @@ def model_status():
     }
 
 
-@app.get("/test-optimize", response_model=OptimizationResult)
+@app.get("/test-optimize", response_model=OptimizationResult, response_model_exclude_none=True)
 async def test_optimize():
     """
     Self-contained smoke test using three hardcoded tasks and one window.
@@ -861,3 +1145,4 @@ if __name__ == "__main__":
     import uvicorn
     logging.basicConfig(level=logging.INFO)
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

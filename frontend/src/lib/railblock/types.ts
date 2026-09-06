@@ -96,6 +96,7 @@ export interface BackendReplayOptimizationResult {
   schedule: BackendScheduledBlock[];
   recommendations: ScheduleRecommendation[];
   dayBreakdown: DayBreakdown[];
+  mlStats?: MlStats;
 }
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -201,4 +202,37 @@ export interface OptimizationSchedule {
   dayBreakdown?: DayBreakdown[];
   /** Backend raw scheduled blocks, kept for per-day filtering. */
   blocks?: BackendScheduledBlock[];
+  /** Live ML prioritization stats + per-decision feed (replay only). */
+  mlStats?: MlStats | null;
+}
+
+export type MlTier = "critical" | "high" | "watch" | "low";
+
+export interface MlDecision {
+  blockId: string;
+  caseId: string;
+  department: string;
+  sectionId: string;
+  label: string;
+  mlScore: number;
+  tier: MlTier;
+  status: string;
+  day: number;
+}
+
+export interface MlStats {
+  mode: "ml" | "heuristic" | "unavailable";
+  active: boolean;
+  engine: string;
+  cases: number;
+  scoredByModel: number;
+  scoredByHeuristic: number;
+  scoreMin: number;
+  scoreMax: number;
+  scoreMean: number;
+  tiers: Partial<Record<MlTier, number>>;
+  decisionsMade: number;
+  scheduledHighRisk: number;
+  deferredCount: number;
+  decisionFeed: MlDecision[];
 }
