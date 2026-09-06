@@ -5,6 +5,7 @@ import { TrackView } from "@/components/railblock/TrackView";
 import { DecisionPanel } from "@/components/railblock/DecisionPanel";
 import { LogStream } from "@/components/railblock/LogStream";
 import { DebugDrawer } from "@/components/railblock/DebugDrawer";
+import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
   Select,
