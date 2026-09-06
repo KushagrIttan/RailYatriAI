@@ -274,6 +274,7 @@ export async function fetchOptimizationSchedule(
     dayBreakdown: apiResult.dayBreakdown ?? [],
     blocks: schedule,
     mlStats: apiResult.mlStats ?? null,
+    triage: apiResult.triage ?? null,
   };
 }
 

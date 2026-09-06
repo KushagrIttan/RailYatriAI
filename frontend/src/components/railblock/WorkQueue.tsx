@@ -23,9 +23,9 @@ export function WorkQueue({
   return (
     <div className="panel-surface overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <ListChecks className="size-4 text-primary" />
-        <h2 className="text-sm font-semibold">Work Queue</h2>
+      <div className="flex items-center gap-2 border-b border-border px-4 py-3.5">
+        <ListChecks className="size-5 text-primary" />
+        <h2 className="text-base font-semibold text-foreground tracking-tight">Work Queue</h2>
         {pending.length > 0 && (
           <span className="ml-auto rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-warning">
             {pending.length} pending
@@ -36,7 +36,7 @@ export function WorkQueue({
       <div className="divide-y divide-border">
         {/* Onboarding tip */}
         {showBanner && (
-          <div className="relative bg-indigo-50/60 px-4 py-3">
+          <div className="relative bg-blue-50/60 px-4 py-3">
             <button
               onClick={() => setShowBanner(false)}
               className="absolute right-2 top-2 rounded p-1 text-muted-foreground/60 hover:bg-white hover:text-foreground"
@@ -74,7 +74,7 @@ export function WorkQueue({
               onClick={() => onSelect(conflict.id)}
               className={`w-full px-4 py-3.5 text-left transition-colors ${
                 active
-                  ? "bg-accent shadow-[inset_3px_0_0_#6366f1]"
+                  ? "bg-accent shadow-[inset_3px_0_0_#2563eb]"
                   : "hover:bg-gray-50"
               }`}
             >

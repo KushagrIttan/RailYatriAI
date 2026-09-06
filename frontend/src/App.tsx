@@ -3,9 +3,12 @@ import { AlertTriangle, RefreshCw, ServerCrash } from "lucide-react";
 import { Sidebar } from "@/components/railblock/Sidebar";
 import { TopBar } from "@/components/railblock/TopBar";
 import { TrackView } from "@/components/railblock/TrackView";
+import { WeekView } from "@/components/railblock/WeekView";
+import { MonthView } from "@/components/railblock/MonthView";
 import { DecisionPanel } from "@/components/railblock/DecisionPanel";
 import { LogStream } from "@/components/railblock/LogStream";
 import { MlStatsPanel } from "@/components/railblock/MlStatsPanel";
+import { TriagePanel } from "@/components/railblock/TriagePanel";
 import { WorkQueue } from "@/components/railblock/WorkQueue";
 import { DebugDrawer } from "@/components/railblock/DebugDrawer";
 import { PlanningGuide } from "@/components/railblock/PlanningGuide";
@@ -15,6 +18,7 @@ import {
   CORRIDORS,
   HORIZON_DAYS,
   HORIZON_LABELS,
+  SLOT_COUNT,
   fetchOptimizationSchedule,
   makeLog,
 } from "@/lib/railblock/service";
@@ -201,9 +205,12 @@ export default function App() {
   };
 
   const windowLabel = useMemo(() => {
-    const hours = -1 + (windowOffset / 100) * 5;
-    if (Math.abs(hours) < 0.1) return "Now";
-    return hours < 0 ? `${Math.abs(hours).toFixed(1)}h ago` : `+${hours.toFixed(1)}h projected`;
+    const totalSlots = SLOT_COUNT - 1;
+    const slot = Math.round((windowOffset / 100) * totalSlots);
+    const anchorHour = 8;
+    const hours = anchorHour + Math.floor(slot / 4);
+    const minutes = (slot % 4) * 15;
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   }, [windowOffset]);
 
   const kpis = schedule?.kpis ?? {
@@ -242,25 +249,16 @@ export default function App() {
         {/* Scrollable page body */}
         <div className="flex-1 overflow-y-auto">
 
-          {/* Hero gradient banner */}
+          {/* Hero banner */}
           <div
-            className="mx-6 mt-6 overflow-hidden rounded-xl"
-            style={{
-              background: "linear-gradient(135deg, #e0e7ff 0%, #ede9fe 38%, #fce7f3 72%, #fff1f2 100%)",
-              height: "140px",
-            }}
+            className="mx-6 mt-6 overflow-hidden rounded-xl bg-blue-50 border border-blue-100"
+            style={{ height: "140px" }}
           >
             <div className="relative h-full w-full overflow-hidden">
-              {/* Floating translucent card shapes (reference style) */}
-              <div className="absolute left-[8%] top-[10%] h-20 w-28 rounded-2xl bg-white/30 rotate-12 blur-[1px]" />
-              <div className="absolute left-[20%] top-[35%] h-14 w-20 rounded-xl bg-white/40 -rotate-6" />
-              <div className="absolute left-[36%] top-[8%] h-18 w-24 rounded-2xl bg-purple-200/40 rotate-3" />
-              <div className="absolute right-[18%] top-[15%] h-24 w-32 rounded-2xl bg-pink-200/35 -rotate-8 blur-[1.5px]" />
-              <div className="absolute right-[6%] top-[30%] h-14 w-18 rounded-xl bg-white/30 rotate-12" />
               {/* Corridor title overlaid */}
               <div className="absolute bottom-5 left-6">
-                <p className="text-[11px] font-medium uppercase tracking-widest text-indigo-700/50">Maintenance Planning</p>
-                <h1 className="mt-0.5 text-xl font-bold tracking-tight text-indigo-900/75">
+                <p className="text-[11px] font-medium uppercase tracking-widest text-blue-400">Maintenance Planning</p>
+                <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-800">
                   {corridor.label}
                 </h1>
               </div>
@@ -346,13 +344,33 @@ export default function App() {
             </div>
           )}
 
-          {/* TrackView */}
+          {/* Main chart — switches with the horizon toggle */}
           <div className="mx-6 mt-5">
             {fetchError ? (
               <div className="panel-surface flex items-center justify-center gap-3 py-16 text-muted-foreground">
                 <AlertTriangle className="size-5 text-destructive/60" />
-                <p className="text-sm">Track view unavailable — no schedule data.</p>
+                <p className="text-sm">Chart unavailable — no schedule data.</p>
               </div>
+            ) : horizon === "weekly" ? (
+              <WeekView
+                dayBreakdown={dayBreakdown}
+                selectedDay={clampedDay}
+                onSelectDay={(i) => {
+                  setSelectedDay(i);
+                  setSelectedConflictId(null);
+                  setSimulation(null);
+                }}
+              />
+            ) : horizon === "monthly" ? (
+              <MonthView
+                dayBreakdown={dayBreakdown}
+                selectedDay={clampedDay}
+                onSelectDay={(i) => {
+                  setSelectedDay(i);
+                  setSelectedConflictId(null);
+                  setSimulation(null);
+                }}
+              />
             ) : (
               <TrackView
                 sectors={corridor.sectors}
@@ -366,17 +384,6 @@ export default function App() {
               />
             )}
           </div>
-
-          {/* Live ML decision intelligence */}
-          {!fetchError && schedule && (
-            <div className="mx-6 mt-5">
-              <MlStatsPanel
-                stats={schedule.mlStats ?? null}
-                approvedCount={approvedCount}
-                pendingCount={displayConflicts.filter((c) => !c.resolved).length}
-              />
-            </div>
-          )}
 
           {/* WorkQueue + DecisionPanel side by side */}
           <div className="mx-6 mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -398,6 +405,24 @@ export default function App() {
               simulation={simulation}
             />
           </div>
+
+          {/* Triage queue */}
+          {!fetchError && schedule?.triage && (
+            <div className="mx-6 mt-5">
+              <TriagePanel triage={schedule.triage} />
+            </div>
+          )}
+
+          {/* Live ML decision intelligence */}
+          {!fetchError && schedule && (
+            <div className="mx-6 mt-5">
+              <MlStatsPanel
+                stats={schedule.mlStats ?? null}
+                approvedCount={approvedCount}
+                pendingCount={displayConflicts.filter((c) => !c.resolved).length}
+              />
+            </div>
+          )}
 
           {/* Activity log */}
           <div className="mx-6 mt-5 pb-8">
