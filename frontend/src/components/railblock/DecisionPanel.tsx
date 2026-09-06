@@ -50,7 +50,7 @@ export function DecisionPanel({
           />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold">Maintenance request</span>
+              <span className="text-base font-semibold tracking-tight text-foreground">Maintenance request</span>
               <span
                 className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${
                   critical ? "bg-red-50 text-destructive" : "bg-amber-50 text-warning"
@@ -75,8 +75,8 @@ export function DecisionPanel({
           className="flex w-full items-center gap-2 text-left"
         >
           <CircuitBoard className="size-4 text-primary" />
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Suggested plan
+          <span className="text-base font-semibold text-foreground tracking-tight">
+            Suggested Plan
           </span>
           <span className="ml-auto rounded-full bg-green-50 px-2.5 py-0.5 text-[10px] font-semibold text-success">
             {(recommendation.confidence * 100).toFixed(0)}% confidence

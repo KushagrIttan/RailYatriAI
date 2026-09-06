@@ -275,7 +275,7 @@ class PriorityModel:
 
     def predict(self, feat: Dict[str, float]) -> Tuple[float, bool]:
         """Return (calibrated score in [0,1], used_model_bool)."""
-        if not (self.trained and _HAS_SKLEARN):
+        if not (self.trained and _HAS_SKLEARN and self.model is not None and self.calibrator is not None):
             return float(self._heuristic_score(feat)), False
         x = np.array([feature_vector(feat)])
         if self.scaler is not None:

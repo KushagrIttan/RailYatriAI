@@ -15,7 +15,7 @@ Data flow (fallback):
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import sys
 import httpx
@@ -27,6 +27,14 @@ from enum import Enum
 from collections import defaultdict
 
 logger = logging.getLogger("railblock")
+
+class _UnavailablePriorityModel:
+    trained = False
+    metrics = {}
+
+
+PriorityModel = _UnavailablePriorityModel
+build_features = None
 
 # Optional ML prioritization module (kept import-safe so the engine still runs
 # if scikit-learn or the trained model is unavailable).

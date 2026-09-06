@@ -82,6 +82,62 @@ export interface DayBreakdown {
   availabilityGainPct: number;
 }
 
+// ─── Triage types ────────────────────────────────────────────────────────────
+
+/** The 5 risk buckets produced by the Python _triage_tier function. */
+export type TriageTier = "blocked" | "critical" | "high" | "watch" | "clear";
+
+/** Auditable score breakdown for a single triage item. */
+export interface TriageComponents {
+  /** ML prioritizer risk score (0–1). */
+  mlRisk: number;
+  /** Normalised train-exposure factor (trains bracketing the gap / 12). */
+  exposure: number;
+  /** Days since the case was reported (unnormalised). */
+  ageDays: number;
+  /** Safety-requirement weight: count of procedure booleans / 4. */
+  safetyWeight: number;
+}
+
+/** One triage item — corresponds to one scheduled/deferred block. */
+export interface TriageItem {
+  blockId: string;
+  taskId: string;
+  department: string;
+  sectionId: string;
+  locationKm: string;
+  status: string;
+  triageTier: TriageTier;
+  triageScore: number;
+  components: TriageComponents;
+  reportedAt: string | null;
+  workMinutes: number;
+  requirements: string[];
+  recommendation: string;
+  impact: {
+    trainsImpacted: number;
+    estimatedDelayMinutes: number;
+  };
+}
+
+/** Rollup counts across all triage items for the planning horizon. */
+export interface TriageRollup {
+  blocked: number;
+  critical: number;
+  high: number;
+  watch: number;
+  clear: number;
+  /** Count of items with status === "Deferred". */
+  backlog: number;
+  /** Highest individual triage score in the set (0–1). */
+  highestRisk: number;
+}
+
+export interface TriageQueue {
+  rollup: TriageRollup;
+  items: TriageItem[];
+}
+
 export interface BackendReplayOptimizationResult {
   mode: "replay";
   horizon: PlanningHorizon;
@@ -97,6 +153,7 @@ export interface BackendReplayOptimizationResult {
   recommendations: ScheduleRecommendation[];
   dayBreakdown: DayBreakdown[];
   mlStats?: MlStats;
+  triage?: TriageQueue;
 }
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -204,6 +261,8 @@ export interface OptimizationSchedule {
   blocks?: BackendScheduledBlock[];
   /** Live ML prioritization stats + per-decision feed (replay only). */
   mlStats?: MlStats | null;
+  /** Explainable triage queue — ranked items + rollup counts (replay only). */
+  triage?: TriageQueue | null;
 }
 
 export type MlTier = "critical" | "high" | "watch" | "low";
