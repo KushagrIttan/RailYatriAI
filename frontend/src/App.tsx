@@ -43,16 +43,11 @@ export default function App() {
   }, []);
 
   const loadSchedule = useCallback(
-    async (
-      id: string,
-      hz: PlanningHorizon,
-      cancelled: { value: boolean },
-    ) => {
+    async (id: string, hz: PlanningHorizon, cancelled: { value: boolean }) => {
       setLoading(true);
       setFetchError(null);
       setSchedule(null);
       pushLog(`Preparing the saved timetable scenario (${HORIZON_LABELS[hz]} plan)…`, "info");
-
       try {
         const data = await fetchOptimizationSchedule(id, hz, HORIZON_DAYS[hz]);
         if (cancelled.value) return;
@@ -84,9 +79,10 @@ export default function App() {
     setApproving("idle");
     setSimulation(null);
     setSelectedConflictId(null);
-    void loadSchedule(corridorId, cancelled);
+    setSelectedDay(0);
+    void loadSchedule(corridorId, horizon, cancelled);
     return () => { cancelled.value = true; };
-  }, [corridorId, loadSchedule]);
+  }, [corridorId, horizon, loadSchedule]);
 
   useEffect(() => {
     if (fetchError) return;
@@ -107,7 +103,9 @@ export default function App() {
   const dayBreakdown = schedule?.dayBreakdown ?? [];
   const clampedDay = Math.min(selectedDay, Math.max(0, dayBreakdown.length - 1));
   const displayConflicts = (schedule?.conflicts ?? []).filter((c) => c.dayIndex === clampedDay);
-  const displayShadowBlocks = (schedule?.shadowBlocks ?? []).filter((sb) => sb.dayIndex === clampedDay);
+  const displayShadowBlocks = (schedule?.shadowBlocks ?? []).filter(
+    (sb) => sb.dayIndex === clampedDay,
+  );
 
   const activeConflict =
     displayConflicts.find((c) => c.id === selectedConflictId && !c.resolved) ??
@@ -202,7 +200,6 @@ export default function App() {
         kpis={kpis}
         onOpenGuide={() => setGuideOpen(true)}
         replayContext={schedule?.replayContext}
-        horizonLabel={schedule ? `${HORIZON_LABELS[schedule.horizon ?? "daily"]} plan` : undefined}
       />
 
       {/* ── Right: everything else stacks vertically ── */}
@@ -213,7 +210,7 @@ export default function App() {
           corridorId={corridorId}
           setCorridorId={setCorridorId}
           loading={loading}
-          onRefresh={() => { const c = { value: false }; void loadSchedule(corridorId, c); }}
+          onRefresh={() => { const c = { value: false }; void loadSchedule(corridorId, horizon, c); }}
           windowOffset={windowOffset}
           setWindowOffset={setWindowOffset}
           windowLabel={windowLabel}
@@ -263,7 +260,7 @@ export default function App() {
                   </ul>
                 </div>
                 <Button size="sm" variant="outline" disabled={loading}
-                  onClick={() => { const c = { value: false }; void loadSchedule(corridorId, c); }}
+                  onClick={() => { const c = { value: false }; void loadSchedule(corridorId, horizon, c); }}
                   className="shrink-0 border-red-200 text-destructive hover:bg-red-50">
                   <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> Retry
                 </Button>
@@ -271,37 +268,61 @@ export default function App() {
             </div>
           )}
 
-            {/* Planning horizon toggle: daily / weekly / monthly */}
-            <div className="flex overflow-hidden rounded-md border border-border bg-background/60">
-              {(Object.keys(HORIZON_LABELS) as PlanningHorizon[]).map((hz) => (
-                <button
-                  key={hz}
-                  onClick={() => setHorizon(hz)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    horizon === hz
-                      ? "bg-success/15 text-success"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  }`}
-                >
-                  {HORIZON_LABELS[hz]}
-                </button>
-              ))}
-            </div>
+          {/* Planning controls: horizon toggle + day selector */}
+          {!fetchError && !loading && (
+            <div className="mx-6 mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex overflow-hidden rounded-md border border-border bg-background/60">
+                {(Object.keys(HORIZON_LABELS) as PlanningHorizon[]).map((hz) => (
+                  <button
+                    key={hz}
+                    onClick={() => setHorizon(hz)}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      horizon === hz
+                        ? "bg-success/15 text-success"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    }`}
+                  >
+                    {HORIZON_LABELS[hz]}
+                  </button>
+                ))}
+              </div>
 
-            {/* Retry / Refresh button replaces the old "Load sample plan" */}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={loading}
-              onClick={() => {
-                const cancelled = { value: false };
-                void loadSchedule(corridorId, horizon, cancelled);
-              }}
-              className="h-9 gap-1.5"
-            >
-              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-              {loading ? "Loading…" : "Refresh"}
-            </Button>
+              {dayBreakdown.length > 1 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Planning day
+                  </span>
+                  {dayBreakdown.map((day, i) => (
+                    <button
+                      key={day.date}
+                      onClick={() => { setSelectedDay(i); setSelectedConflictId(null); setSimulation(null); }}
+                      title={`${day.scheduled} scheduled · ${day.deferred} deferred · ${day.availabilityGainPct}% window used`}
+                      className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        i === clampedDay
+                          ? "border-success/50 bg-success/15 text-success"
+                          : "border-border bg-background/50 text-muted-foreground hover:bg-accent/50"
+                      }`}
+                    >
+                      {day.label}
+                      <span className="ml-1.5 inline-flex items-center gap-1 text-[9px] opacity-80">
+                        <span className="size-1.5 rounded-full bg-success/80" />
+                        {day.scheduled}
+                        {day.deferred > 0 && <span className="size-1.5 rounded-full bg-destructive/70" />}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Loading indicator */}
+          {loading && !fetchError && (
+            <div className="mx-6 mt-4 flex items-center gap-3 rounded-lg border border-border bg-white px-5 py-3">
+              <RefreshCw className="size-4 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Preparing the saved timetable scenario…</p>
+            </div>
+          )}
 
           {/* TrackView */}
           <div className="mx-6 mt-5">
@@ -314,7 +335,7 @@ export default function App() {
               <TrackView
                 sectors={corridor.sectors}
                 trains={schedule?.trains ?? []}
-                shadowBlocks={schedule?.shadowBlocks ?? []}
+                shadowBlocks={displayShadowBlocks}
                 windowOffset={windowOffset}
                 selectedTrain={selectedTrain}
                 onSelectTrain={setSelectedTrain}
@@ -324,48 +345,14 @@ export default function App() {
             )}
           </div>
 
-          {/* Day selector for weekly / monthly horizons */}
-          {dayBreakdown.length > 1 && !fetchError && (
-            <div className="panel-surface flex flex-wrap items-center gap-1.5 px-4 py-2.5">
-              <span className="mr-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Planning day
-              </span>
-              {dayBreakdown.map((day, i) => (
-                <button
-                  key={day.date}
-                  onClick={() => { setSelectedDay(i); setSelectedConflictId(null); setSimulation(null); }}
-                  title={`${day.scheduled} scheduled · ${day.deferred} deferred · ${day.availabilityGainPct}% window used`}
-                  className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    i === clampedDay
-                      ? "border-success/50 bg-success/15 text-success"
-                      : "border-border bg-background/50 text-muted-foreground hover:bg-accent/50"
-                  }`}
-                >
-                  {day.label}
-                  <span className="ml-1.5 inline-flex items-center gap-1 text-[9px] opacity-80">
-                    <span className="size-1.5 rounded-full bg-success/80" />
-                    {day.scheduled}
-                    {day.deferred > 0 && <span className="size-1.5 rounded-full bg-destructive/70" />}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Show a subtle warning strip on the track view when errored */}
-          {fetchError ? (
-            <div className="panel-surface flex items-center justify-center gap-3 py-16 text-muted-foreground">
-              <AlertTriangle className="size-5 text-destructive/60" />
-              <p className="text-sm">Track view unavailable — no schedule data.</p>
-            </div>
-          ) : (
-            <TrackView
-              sectors={corridor.sectors}
-              trains={schedule?.trains ?? []}
-              shadowBlocks={displayShadowBlocks}
-              windowOffset={windowOffset}
-              selectedTrain={selectedTrain}
-              onSelectTrain={setSelectedTrain}
+          {/* WorkQueue + DecisionPanel side by side */}
+          <div className="mx-6 mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <WorkQueue
+              conflicts={displayConflicts}
+              recommendations={schedule?.recommendations ?? []}
+              selectedId={activeConflict?.id ?? null}
+              onSelect={setSelectedConflictId}
+              onOpenGuide={() => setGuideOpen(true)}
             />
             <DecisionPanel
               conflict={activeConflict}
@@ -379,15 +366,10 @@ export default function App() {
             />
           </div>
 
-        <section className="xl:col-start-1 xl:row-start-1">
-          <WorkQueue
-            conflicts={displayConflicts}
-            recommendations={schedule?.recommendations ?? []}
-            selectedId={activeConflict?.id ?? null}
-            onSelect={setSelectedConflictId}
-            onOpenGuide={() => setGuideOpen(true)}
-          />
-        </section>
+          {/* Activity log */}
+          <div className="mx-6 mt-5 pb-8">
+            <LogStream logs={logs} />
+          </div>
 
           {/* Debug drawer (sticky at bottom of scroll area) */}
           <DebugDrawer open={debugOpen} onToggle={() => setDebugOpen((v) => !v)} payload={schedule} />
