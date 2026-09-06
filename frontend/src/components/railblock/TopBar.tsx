@@ -54,7 +54,7 @@ function Kpi({
   );
 }
 
-export function TopBar({ kpis, onOpenGuide, replayContext }: { kpis: KpiSnapshot; onOpenGuide: () => void; replayContext?: ReplayContext }) {
+export function TopBar({ kpis, onOpenGuide, replayContext, horizonLabel }: { kpis: KpiSnapshot; onOpenGuide: () => void; replayContext?: ReplayContext; horizonLabel?: string }) {
   return (
     <TooltipProvider delayDuration={150}>
     <header className="border-b border-border bg-panel/70 backdrop-blur">
@@ -78,6 +78,7 @@ export function TopBar({ kpis, onOpenGuide, replayContext }: { kpis: KpiSnapshot
           <Activity className="size-3.5 text-success" />
           <span className="animate-ticker num text-[11px] font-medium tracking-tight text-success">
             {replayContext ? `SAVED TIMETABLE SCENARIO · ${new Date(replayContext.capturedAt).toLocaleDateString("en-IN")}` : "PLANNING SCENARIO"}
+            {horizonLabel ? ` · ${horizonLabel}` : ""}
           </span>
         </div>
 

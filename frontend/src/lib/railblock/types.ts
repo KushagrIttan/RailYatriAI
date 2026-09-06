@@ -70,16 +70,32 @@ export interface ReplayWindowCandidate {
   occupiedByTrainIds: string[];
 }
 
+export type PlanningHorizon = "daily" | "weekly" | "monthly";
+
+export interface DayBreakdown {
+  date: string;
+  label: string;
+  totalRequests: number;
+  scheduled: number;
+  deferred: number;
+  workMinutes: number;
+  availabilityGainPct: number;
+}
+
 export interface BackendReplayOptimizationResult {
   mode: "replay";
+  horizon: PlanningHorizon;
+  planningDays: number;
   replayContext: ReplayContext;
   trainMovements: ReplayTrainMovement[];
   windowCandidates: ReplayWindowCandidate[];
   totalTasks: number;
   scheduledTasks: number;
   conflictsDetected: number;
+  assetAvailabilityGain: number;
   schedule: BackendScheduledBlock[];
   recommendations: ScheduleRecommendation[];
+  dayBreakdown: DayBreakdown[];
 }
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -113,6 +129,8 @@ export interface ShadowBlock {
   probability: number;
   label: string;
   resolved: boolean;
+  /** Planning-day index this block belongs to (0-based). */
+  dayIndex: number;
 }
 
 export interface Conflict {
@@ -127,6 +145,8 @@ export interface Conflict {
   severity: "critical" | "warning";
   description: string;
   resolved: boolean;
+  /** Planning-day index this decision belongs to (0-based). */
+  dayIndex: number;
 }
 
 export interface ScheduleRecommendation {
@@ -171,4 +191,9 @@ export interface OptimizationSchedule {
   conflicts: Conflict[];
   recommendations: ScheduleRecommendation[];
   replayContext?: ReplayContext;
+  horizon?: PlanningHorizon;
+  planningDays?: number;
+  dayBreakdown?: DayBreakdown[];
+  /** Backend raw scheduled blocks, kept for per-day filtering. */
+  blocks?: BackendScheduledBlock[];
 }

@@ -19,14 +19,18 @@ import {
 import {
   AMBIENT_LOG_MESSAGES,
   CORRIDORS,
+  HORIZON_DAYS,
+  HORIZON_LABELS,
   fetchOptimizationSchedule,
   makeLog,
 } from "@/lib/railblock/service";
 import { ApiError } from "@/lib/railblock/types";
-import type { LogEntry, OptimizationSchedule } from "@/lib/railblock/types";
+import type { LogEntry, OptimizationSchedule, PlanningHorizon } from "@/lib/railblock/types";
 
 export default function App() {
   const [corridorId, setCorridorId] = useState(CORRIDORS[0]!.id);
+  const [horizon, setHorizon] = useState<PlanningHorizon>("daily");
+  const [selectedDay, setSelectedDay] = useState(0);
   const [schedule, setSchedule] = useState<OptimizationSchedule | null>(null);
   const [fetchError, setFetchError] = useState<{ title: string; detail: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,19 +53,24 @@ export default function App() {
   // ── Fetch schedule ────────────────────────────────────────────────────────
 
   const loadSchedule = useCallback(
-    async (id: string, cancelled: { value: boolean }) => {
+    async (
+      id: string,
+      hz: PlanningHorizon,
+      cancelled: { value: boolean },
+    ) => {
       setLoading(true);
       setFetchError(null);
       setSchedule(null);
-      pushLog("Preparing the saved timetable scenario…", "info");
+      pushLog(`Preparing the saved timetable scenario (${HORIZON_LABELS[hz]} plan)…`, "info");
 
       try {
-        const data = await fetchOptimizationSchedule(id);
+        const data = await fetchOptimizationSchedule(id, hz, HORIZON_DAYS[hz]);
         if (cancelled.value) return;
 
         setSchedule(data);
+        setSelectedDay(0);
         pushLog(
-          `Plan ready — ${data.kpis.trainsMonitored} maintenance requests reviewed.`,
+          `Plan ready — ${data.kpis.trainsMonitored} maintenance requests reviewed across the ${HORIZON_LABELS[hz].toLowerCase()} horizon.`,
           "success",
         );
         if (data.conflicts.length > 0) {
@@ -96,11 +105,12 @@ export default function App() {
     setApproving("idle");
     setSimulation(null);
     setSelectedConflictId(null);
-    void loadSchedule(corridorId, cancelled);
+    setSelectedDay(0);
+    void loadSchedule(corridorId, horizon, cancelled);
     return () => {
       cancelled.value = true;
     };
-  }, [corridorId, loadSchedule]);
+  }, [corridorId, horizon, loadSchedule]);
 
   // ── Ambient log ticker (only when healthy) ────────────────────────────────
 
@@ -125,9 +135,16 @@ export default function App() {
     [corridorId],
   );
 
+  // Day-scoped view: the backend returns all days' decisions for the horizon;
+  // the UI shows the selected planning day while keeping resolve state global.
+  const dayBreakdown = schedule?.dayBreakdown ?? [];
+  const clampedDay = Math.min(selectedDay, Math.max(0, dayBreakdown.length - 1));
+  const displayConflicts = (schedule?.conflicts ?? []).filter((c) => c.dayIndex === clampedDay);
+  const displayShadowBlocks = (schedule?.shadowBlocks ?? []).filter((sb) => sb.dayIndex === clampedDay);
+
   const activeConflict =
-    schedule?.conflicts.find((c) => c.id === selectedConflictId && !c.resolved) ??
-    schedule?.conflicts.find((c) => !c.resolved) ??
+    displayConflicts.find((c) => c.id === selectedConflictId && !c.resolved) ??
+    displayConflicts.find((c) => !c.resolved) ??
     null;
   const activeRecommendation =
     schedule?.recommendations.find((r) => r.conflictId === activeConflict?.id) ?? null;
@@ -161,7 +178,7 @@ export default function App() {
             c.id === activeConflict.id ? { ...c, resolved: true } : c,
           ),
           shadowBlocks: prev.shadowBlocks.map((sb) =>
-            sb.sector === activeConflict.sector ? { ...sb, resolved: true } : sb,
+            sb.id === activeConflict.blockId ? { ...sb, resolved: true } : sb,
           ),
           trains: prev.trains.map((t) => {
             const step = steps.find((s) => s.trainNumber === t.number);
@@ -237,6 +254,7 @@ export default function App() {
         }
         onOpenGuide={() => setGuideOpen(true)}
         replayContext={schedule?.replayContext}
+        horizonLabel={schedule ? `${HORIZON_LABELS[schedule.horizon ?? "daily"]} plan` : undefined}
       />
 
       {/* ── Error banner ──────────────────────────────────────────────────── */}
@@ -272,7 +290,7 @@ export default function App() {
               disabled={loading}
               onClick={() => {
                 const cancelled = { value: false };
-                void loadSchedule(corridorId, cancelled);
+                void loadSchedule(corridorId, horizon, cancelled);
               }}
               className="shrink-0 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10"
             >
@@ -309,6 +327,23 @@ export default function App() {
               </SelectContent>
             </Select>
 
+            {/* Planning horizon toggle: daily / weekly / monthly */}
+            <div className="flex overflow-hidden rounded-md border border-border bg-background/60">
+              {(Object.keys(HORIZON_LABELS) as PlanningHorizon[]).map((hz) => (
+                <button
+                  key={hz}
+                  onClick={() => setHorizon(hz)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    horizon === hz
+                      ? "bg-success/15 text-success"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  }`}
+                >
+                  {HORIZON_LABELS[hz]}
+                </button>
+              ))}
+            </div>
+
             {/* Retry / Refresh button replaces the old "Load sample plan" */}
             <Button
               variant="outline"
@@ -316,7 +351,7 @@ export default function App() {
               disabled={loading}
               onClick={() => {
                 const cancelled = { value: false };
-                void loadSchedule(corridorId, cancelled);
+                void loadSchedule(corridorId, horizon, cancelled);
               }}
               className="h-9 gap-1.5"
             >
@@ -339,6 +374,34 @@ export default function App() {
             </div>
           </div>
 
+          {/* Day selector for weekly / monthly horizons */}
+          {dayBreakdown.length > 1 && !fetchError && (
+            <div className="panel-surface flex flex-wrap items-center gap-1.5 px-4 py-2.5">
+              <span className="mr-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Planning day
+              </span>
+              {dayBreakdown.map((day, i) => (
+                <button
+                  key={day.date}
+                  onClick={() => { setSelectedDay(i); setSelectedConflictId(null); setSimulation(null); }}
+                  title={`${day.scheduled} scheduled · ${day.deferred} deferred · ${day.availabilityGainPct}% window used`}
+                  className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    i === clampedDay
+                      ? "border-success/50 bg-success/15 text-success"
+                      : "border-border bg-background/50 text-muted-foreground hover:bg-accent/50"
+                  }`}
+                >
+                  {day.label}
+                  <span className="ml-1.5 inline-flex items-center gap-1 text-[9px] opacity-80">
+                    <span className="size-1.5 rounded-full bg-success/80" />
+                    {day.scheduled}
+                    {day.deferred > 0 && <span className="size-1.5 rounded-full bg-destructive/70" />}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Show a subtle warning strip on the track view when errored */}
           {fetchError ? (
             <div className="panel-surface flex items-center justify-center gap-3 py-16 text-muted-foreground">
@@ -349,7 +412,7 @@ export default function App() {
             <TrackView
               sectors={corridor.sectors}
               trains={schedule?.trains ?? []}
-              shadowBlocks={schedule?.shadowBlocks ?? []}
+              shadowBlocks={displayShadowBlocks}
               windowOffset={windowOffset}
               selectedTrain={selectedTrain}
               onSelectTrain={setSelectedTrain}
@@ -359,7 +422,7 @@ export default function App() {
 
         <section className="xl:col-start-1 xl:row-start-1">
           <WorkQueue
-            conflicts={schedule?.conflicts ?? []}
+            conflicts={displayConflicts}
             recommendations={schedule?.recommendations ?? []}
             selectedId={activeConflict?.id ?? null}
             onSelect={setSelectedConflictId}
