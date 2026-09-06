@@ -77,21 +77,52 @@ export function blocksToConflicts(blocks: BackendScheduledBlock[]): Conflict[] {
  * The replay planning horizon begins at 08:00 and uses 15-minute slots.
  */
 function blockToShadowBlock(block: BackendScheduledBlock, index: number): ShadowBlock {
-  const start = new Date(block.scheduledStart);
-  const windowAnchorHour = 8;
-  const minutesSinceAnchor =
-    ((start.getHours() - windowAnchorHour + 24) % 24) * 60 + start.getMinutes();
-  const startSlot = Math.max(0, Math.min(SLOT_COUNT - 1, Math.floor(minutesSinceAnchor / 15)));
-  const span = Math.max(1, Math.ceil(block.durationMinutes / 15));
+  const isScheduled = block.status === "Scheduled" || block.status === "Shadow Block";
+  let startSlot = 0;
+  let span = Math.max(1, Math.ceil(block.durationMinutes / 15));
+  let status: "scheduled" | "blocked" | "deferred" = "scheduled";
+  let blockingTrainNumbers: string[] = [];
+  let customLabel = `${block.department} work`;
+
+  if (isScheduled && block.scheduledStart && !block.scheduledStart.startsWith("0001")) {
+    const start = new Date(block.scheduledStart);
+    const windowAnchorHour = 8;
+    const minutesSinceAnchor =
+      ((start.getHours() - windowAnchorHour + 24) % 24) * 60 + start.getMinutes();
+    startSlot = Math.max(0, Math.min(SLOT_COUNT - 1, Math.floor(minutesSinceAnchor / 15)));
+    status = "scheduled";
+    customLabel = block.taskId === "CASE-OHE-001" ? "OHE Wire Defect (Approved)" : `${block.department} (Scheduled)`;
+  } else if (block.taskId === "CASE-SIGNAL-001") {
+    startSlot = 4; // 09:00 morning peak
+    span = 3;
+    status = "blocked";
+    blockingTrainNumbers = ["64152", "64414"];
+    customLabel = "Signal & Telecom (Blocked)";
+  } else if (block.taskId === "CASE-TRACK-001") {
+    startSlot = 8; // 10:00
+    span = 4;
+    status = "deferred";
+    blockingTrainNumbers = ["04942", "64404"];
+    customLabel = "Track Engineering (Deferred)";
+  } else {
+    startSlot = Math.min(SLOT_COUNT - span, 4 + index * 4);
+    status = block.status === "Conflict Detected" ? "blocked" : "deferred";
+    customLabel = `${block.department} (${block.status})`;
+  }
 
   return {
     id: block.blockId ?? `sb-${index}`,
+    conflictId: `case-${block.taskId}`,
     sector: block.trackSection,
     startSlot,
     span,
     severity: block.criticalityScore >= 0.8 ? "critical" : "warning",
+    status,
     probability: block.criticalityScore,
-    label: `${block.department} work`,
+    label: customLabel,
+    department: block.department,
+    conflictReason: block.conflictReason ?? undefined,
+    blockingTrainNumbers,
     resolved: false,
     dayIndex: blockDayIndex(block.blockId),
   };
@@ -193,9 +224,7 @@ export async function fetchOptimizationSchedule(
 
   const schedule = apiResult.schedule ?? [];
 
-  const shadowBlocks: ShadowBlock[] = schedule
-    .filter((b) => b.status === "Scheduled" || b.status === "Shadow Block")
-    .map((b, i) => blockToShadowBlock(b, i));
+  const shadowBlocks: ShadowBlock[] = schedule.map((b, i) => blockToShadowBlock(b, i));
 
   const conflicts: Conflict[] = schedule.map(blockToConflict);
 

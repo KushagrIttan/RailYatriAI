@@ -122,12 +122,17 @@ export interface Train {
 
 export interface ShadowBlock {
   id: string;
+  conflictId: string;
   sector: string;
   startSlot: number;
   span: number;
   severity: "critical" | "warning";
+  status: "scheduled" | "blocked" | "deferred";
   probability: number;
   label: string;
+  department?: string;
+  conflictReason?: string;
+  blockingTrainNumbers?: string[];
   resolved: boolean;
   /** Planning-day index this block belongs to (0-based). */
   dayIndex: number;

@@ -1,21 +1,33 @@
-import { Activity, CircleHelp, ClipboardCheck, Info } from "lucide-react";
-import type { KpiSnapshot, ReplayContext } from "@/lib/railblock/types";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CircleHelp, Gauge, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CORRIDORS } from "@/lib/railblock/service";
 
-function Kpi({
-  label,
-  value,
-  suffix,
-  tone = "default",
-  fill,
-  help,
+export function TopBar({
+  corridorId,
+  setCorridorId,
+  loading,
+  onRefresh,
+  windowOffset,
+  setWindowOffset,
+  windowLabel,
+  onOpenGuide,
 }: {
-  label: string;
-  value: string;
-  suffix?: string;
-  tone?: "default" | "success" | "warning" | "danger";
-  fill?: number;
-  help?: string;
+  corridorId: string;
+  setCorridorId: (id: string) => void;
+  loading: boolean;
+  onRefresh: () => void;
+  windowOffset: number;
+  setWindowOffset: (v: number) => void;
+  windowLabel: string;
+  onOpenGuide: () => void;
 }) {
   const toneClass =
     tone === "success"
@@ -56,23 +68,20 @@ function Kpi({
 
 export function TopBar({ kpis, onOpenGuide, replayContext, horizonLabel }: { kpis: KpiSnapshot; onOpenGuide: () => void; replayContext?: ReplayContext; horizonLabel?: string }) {
   return (
-    <TooltipProvider delayDuration={150}>
-    <header className="border-b border-border bg-panel/70 backdrop-blur">
-      <div className="flex flex-wrap items-center gap-4 px-5 py-3">
-        <div className="flex items-center gap-3">
-          <div className="relative grid size-9 place-items-center rounded-md border border-border bg-background">
-            <ClipboardCheck className="size-5 text-success" />
-            <span className="animate-led absolute -right-1 -top-1 size-2.5 rounded-full bg-success text-success" />
-          </div>
-          <div>
-            <h1 className="text-base font-semibold tracking-tight">
-              Rail<span className="text-success">Block</span>AI
-            </h1>
-            <p className="text-[11px] text-muted-foreground">
-              Plan maintenance around saved train times
-            </p>
-          </div>
-        </div>
+    <div className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-white px-6">
+      {/* Corridor selector */}
+      <Select value={corridorId} onValueChange={setCorridorId}>
+        <SelectTrigger className="w-52 bg-white text-sm shadow-none">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {CORRIDORS.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
         <div className="flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1.5">
           <Activity className="size-3.5 text-success" />
@@ -88,33 +97,29 @@ export function TopBar({ kpis, onOpenGuide, replayContext, horizonLabel }: { kpi
         <button onClick={onOpenGuide} className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><CircleHelp className="size-4" />How this works</button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 px-5 pb-4 lg:grid-cols-4">
-        <Kpi label="Maintenance requests reviewed" value={String(kpis.trainsMonitored)} fill={kpis.trainsMonitored * 3} help="The maintenance requests considered in this saved timetable scenario." />
-        <Kpi
-          label="Maintenance decisions to review"
-          value={String(kpis.activeConflicts)}
-          tone={kpis.activeConflicts > 0 ? "danger" : "success"}
-          fill={kpis.activeConflicts * 25 + 8}
-          help="Suggested work times that still need a planning decision in this prototype."
+      {/* Time window slider */}
+      <div className="flex min-w-48 flex-1 items-center gap-3">
+        <Gauge className="size-4 shrink-0 text-muted-foreground" />
+        <Slider
+          value={[windowOffset]}
+          onValueChange={(v) => setWindowOffset(v[0] ?? 0)}
+          max={100}
+          step={1}
+          className="flex-1"
         />
-        <Kpi
-          label="Estimated disruption avoided"
-          value={kpis.avgDelaySavedMinutes.toFixed(1)}
-          suffix="mins"
-          tone="warning"
-          fill={kpis.avgDelaySavedMinutes * 5}
-          help="A timetable-based estimate, not a live prediction."
-        />
-        <Kpi
-          label="Time available for maintenance"
-          value={kpis.throughputEfficiencyPct.toFixed(1)}
-          suffix="%"
-          tone="success"
-          fill={kpis.throughputEfficiencyPct}
-          help="The share of the saved timetable horizon that has a gap between scheduled trains."
-        />
+        <span className="num w-28 shrink-0 text-right text-xs text-muted-foreground">
+          {windowLabel}
+        </span>
       </div>
-    </header>
-    </TooltipProvider>
+
+      {/* Help */}
+      <button
+        onClick={onOpenGuide}
+        className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-gray-50 hover:text-foreground"
+      >
+        <CircleHelp className="size-4" />
+        How this works
+      </button>
+    </div>
   );
 }
