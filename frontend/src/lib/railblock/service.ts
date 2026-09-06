@@ -273,6 +273,7 @@ export async function fetchOptimizationSchedule(
     planningDays: apiResult.planningDays,
     dayBreakdown: apiResult.dayBreakdown ?? [],
     blocks: schedule,
+    mlStats: apiResult.mlStats ?? null,
   };
 }
 

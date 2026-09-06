@@ -5,6 +5,7 @@ import { TopBar } from "@/components/railblock/TopBar";
 import { TrackView } from "@/components/railblock/TrackView";
 import { DecisionPanel } from "@/components/railblock/DecisionPanel";
 import { LogStream } from "@/components/railblock/LogStream";
+import { MlStatsPanel } from "@/components/railblock/MlStatsPanel";
 import { WorkQueue } from "@/components/railblock/WorkQueue";
 import { DebugDrawer } from "@/components/railblock/DebugDrawer";
 import { PlanningGuide } from "@/components/railblock/PlanningGuide";
@@ -35,6 +36,7 @@ export default function App() {
   const [simulation, setSimulation] = useState<string | null>(null);
   const [debugOpen, setDebugOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [approvedCount, setApprovedCount] = useState(0);
 
   const ambientRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -53,6 +55,16 @@ export default function App() {
         if (cancelled.value) return;
         setSchedule(data);
         pushLog(`Plan ready — ${data.kpis.trainsMonitored} maintenance requests reviewed.`, "success");
+        if (data.mlStats?.active) {
+          const s = data.mlStats;
+          pushLog(
+            `ML prioritizer ranked ${s.scoredByModel} case(s) — mean risk ${s.scoreMean.toFixed(2)}, ` +
+            `${s.scheduledHighRisk} high-risk scheduled.`,
+            "info",
+          );
+        } else if (data.mlStats) {
+          pushLog("ML model inactive — using heuristic fallback ranking.", "warn");
+        }
         if (data.conflicts.length > 0) {
           pushLog(`${data.conflicts.length} maintenance request(s) ready for review.`, "warn");
         }
@@ -80,6 +92,7 @@ export default function App() {
     setSimulation(null);
     setSelectedConflictId(null);
     setSelectedDay(0);
+    setApprovedCount(0);
     void loadSchedule(corridorId, horizon, cancelled);
     return () => { cancelled.value = true; };
   }, [corridorId, horizon, loadSchedule]);
@@ -150,7 +163,16 @@ export default function App() {
         };
       });
       setApproving("done");
-      pushLog("Maintenance decision recorded in this prototype scenario.", "success");
+      setApprovedCount((c) => c + 1);
+      const mlFeed = schedule?.mlStats?.decisionFeed.find(
+        (f) => f.blockId === activeConflict.blockId,
+      );
+      pushLog(
+        mlFeed
+          ? `Maintenance decision recorded — ML risk ${mlFeed.mlScore.toFixed(2)} (${mlFeed.tier}).`
+          : "Maintenance decision recorded in this prototype scenario.",
+        "success",
+      );
       setTimeout(() => setApproving("idle"), 1800);
     }, 900);
   };
@@ -344,6 +366,17 @@ export default function App() {
               />
             )}
           </div>
+
+          {/* Live ML decision intelligence */}
+          {!fetchError && schedule && (
+            <div className="mx-6 mt-5">
+              <MlStatsPanel
+                stats={schedule.mlStats ?? null}
+                approvedCount={approvedCount}
+                pendingCount={displayConflicts.filter((c) => !c.resolved).length}
+              />
+            </div>
+          )}
 
           {/* WorkQueue + DecisionPanel side by side */}
           <div className="mx-6 mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
