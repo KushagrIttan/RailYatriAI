@@ -1,0 +1,77 @@
+# ─── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ─── Secrets / local env ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Editors ─────────────────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# ─── Kiro IDE ────────────────────────────────────────────────────────────────
+.kiro/
+
+# ─── Python (optimizer + data-generator) ─────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+
+# ─── Node / Vite frontend ────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.turbo/
+
+# ─── .NET API ────────────────────────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.userprefs
+[Dd]ebug/
+[Rr]elease/
+*.nupkg
+*.snupkg
+.vs/
+project.lock.json
+packages/
+*.DotSettings.user
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Temporary / scratch dirs ────────────────────────────────────────────────
+*-temp/
+*-tmp/
+tmp/
+temp/

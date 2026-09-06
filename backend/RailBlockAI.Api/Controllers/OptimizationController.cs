@@ -13,90 +13,121 @@ public class OptimizationController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<OptimizationController> _logger;
+    private readonly IReplayBundleService _replayBundleService;
 
-    public OptimizationController(IHttpClientFactory httpClientFactory, ILogger<OptimizationController> logger)
+    public OptimizationController(
+        IHttpClientFactory httpClientFactory,
+        ILogger<OptimizationController> logger,
+        IReplayBundleService replayBundleService)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _replayBundleService = replayBundleService;
     }
 
     [HttpPost("generate")]
     public async Task<IActionResult> GenerateOptimizedSchedule()
     {
-        _logger.LogInformation("Triggering AI Optimization...");
+        _logger.LogInformation("=== Replay optimization request received ===");
 
         try
         {
-            // 1. Gather all current data from our internal DataStore
-            var tasks = DataStore.MaintenanceTasks.Select(t => new {
-                task_id = t.TaskId,
-                department = t.Department,
-                task_type = t.TaskType,
-                description = t.Description,
-                track_section = t.TrackSection,
-                location_km = t.LocationKm,
-                duration_minutes = t.DurationMinutes,
-                required_resources = t.RequiredResources,
-                priority = t.Priority,
-                criticality_score = t.CriticalityScore,
-                dependencies = t.Dependencies,
-                requested_by = t.RequestedBy,
-                requested_date = t.RequestedDate
-            }).ToList();
+            using var replayBundle = await _replayBundleService.LoadAsync(HttpContext.RequestAborted);
+            var context = replayBundle.RootElement.GetProperty("replay_context");
+            _logger.LogInformation(
+                "Using frozen replay bundle for {Corridor}, captured {CapturedAt}",
+                context.GetProperty("corridor_id").GetString(),
+                context.GetProperty("captured_at").GetString());
 
-            var windows = DataStore.CorridorWindows.Select(w => new {
-                window_id = w.WindowId,
-                track_section = w.TrackSection,
-                available_start = w.AvailableStart,
-                available_end = w.AvailableEnd,
-                duration_minutes = w.DurationMinutes,
-                window_type = w.WindowType,
-                constraints = w.Constraints
-            }).ToList();
-
-            // 2. Call the Python FastAPI Engine
             var client = _httpClientFactory.CreateClient();
-            var requestBody = new
-            {
-                tasks = tasks,
-                corridor_windows = windows
-            };
+            client.Timeout = TimeSpan.FromSeconds(30);
 
-            _logger.LogInformation("Sending payload to Python engine...");
-            var response = await client.PostAsJsonAsync("http://localhost:8000/optimize", requestBody);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:8000/replay/optimize")
+            {
+                Content = new StringContent(replayBundle.RootElement.GetRawText(), System.Text.Encoding.UTF8, "application/json")
+            };
+            var response = await client.SendAsync(request, HttpContext.RequestAborted);
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Python Optimizer failed: {Error}", errorContent);
-                return StatusCode((int)response.StatusCode, errorContent);
+                _logger.LogError("Step 2/3 FAILED — Python engine returned {StatusCode}: {Error}",
+                    (int)response.StatusCode, errorContent);
+                return StatusCode((int)response.StatusCode,
+                    $"Python optimization engine returned an error ({(int)response.StatusCode}): {errorContent}");
             }
 
-            var jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-            };
-            var result = await response.Content.ReadFromJsonAsync<OptimizationResult>(jsonOptions);
-
-            if (result == null) return BadRequest("Failed to parse optimization result.");
-
-            // 3. Update the local DataStore
-            DataStore.LastOptimizedSchedule = result;
-
-            return Ok(result);
+            var resultJson = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            DataStore.LastOptimizedSchedule = resultJson;
+            _logger.LogInformation("Replay optimization complete.");
+            return Content(resultJson, "application/json");
+        }
+        catch (FileNotFoundException ex)
+        {
+            _logger.LogError(ex, "Replay bundle is missing.");
+            return StatusCode(503, "Replay bundle is unavailable. Restore data/replay/dli-gzb/replay_bundle.json.");
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Could not reach the Python optimization engine at http://localhost:8000. Is it running?");
+            return StatusCode(503, "Cannot connect to the Python optimization engine (http://localhost:8000). Start it with: cd backend/optimization-engine && python main.py");
+        }
+        catch (TaskCanceledException)
+        {
+            _logger.LogError("Request to Python engine timed out after 30 seconds.");
+            return StatusCode(504, "Python optimization engine timed out after 30 seconds.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during optimization process");
+            _logger.LogError(ex, "Unexpected error during optimization");
             return StatusCode(500, ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Returns tasks + corridor windows in the exact snake_case shape the Python engine expects.
+    /// Python can call GET http://localhost:5053/api/optimization/data to fetch its own input.
+    /// </summary>
+    [HttpGet("data")]
+    public IActionResult GetOptimizationData()
+    {
+        var tasks = DataStore.MaintenanceTasks.Select(t => new {
+            task_id          = t.TaskId,
+            department       = t.Department,
+            task_type        = t.TaskType,
+            description      = t.Description,
+            track_section    = t.TrackSection,
+            location_km      = t.LocationKm,
+            duration_minutes = t.DurationMinutes,
+            required_resources = t.RequiredResources,
+            priority         = t.Priority,
+            criticality_score = t.CriticalityScore,
+            dependencies     = t.Dependencies,
+            requested_by     = t.RequestedBy,
+            requested_date   = t.RequestedDate
+        }).ToList();
+
+        var windows = DataStore.CorridorWindows.Select(w => new {
+            window_id        = w.WindowId,
+            track_section    = w.TrackSection,
+            available_start  = w.AvailableStart,
+            available_end    = w.AvailableEnd,
+            duration_minutes = w.DurationMinutes,
+            window_type      = w.WindowType,
+            constraints      = w.Constraints
+        }).ToList();
+
+        _logger.LogInformation(
+            "Data endpoint called — returning {TaskCount} tasks and {WindowCount} corridor windows",
+            tasks.Count, windows.Count);
+
+        return Ok(new { tasks, corridor_windows = windows });
     }
 
     [HttpGet("current")]
     public IActionResult GetCurrentSchedule()
     {
-        return Ok(DataStore.LastOptimizedSchedule ?? new { message = "No schedule found" });
+        return Ok(DataStore.LastOptimizedSchedule ?? new { message = "No schedule has been generated yet. POST /api/optimization/generate to run the optimizer." });
     }
 }
 

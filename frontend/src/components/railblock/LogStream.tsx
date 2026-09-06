@@ -21,7 +21,7 @@ export function LogStream({ logs }: { logs: LogEntry[] }) {
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <Terminal className="size-3.5 text-success" />
         <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          Live Agent Audit Log
+          Planning activity
         </span>
         <span className="animate-led ml-auto size-2 rounded-full bg-success text-success" />
       </div>

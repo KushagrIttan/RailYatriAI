@@ -9,6 +9,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient(); // Required for OptimizationController to call Python API
 builder.Services.AddScoped<IDataSeeder, JsonDataSeeder>();
+builder.Services.AddSingleton<IReplayBundleService, ReplayBundleService>();
 
 // CORS — allow the frontend dev server and preview builds
 builder.Services.AddCors(options =>
