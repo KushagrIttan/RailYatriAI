@@ -5,6 +5,7 @@ import type {
   Corridor,
   LogEntry,
   OptimizationSchedule,
+  PlanningHorizon,
   ShadowBlock,
 } from "./types";
 import { ApiError } from "./types";
@@ -13,6 +14,18 @@ import { ApiError } from "./types";
 
 /** Vite proxies /api → http://localhost:5053 in dev (see vite.config.ts). */
 const GENERATE_ENDPOINT = "/api/optimization/generate";
+
+export const HORIZON_DAYS: Record<PlanningHorizon, number> = {
+  daily: 1,
+  weekly: 7,
+  monthly: 30,
+};
+
+export const HORIZON_LABELS: Record<PlanningHorizon, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+};
 
 // ─── Corridor definitions ────────────────────────────────────────────────────
 // These describe the corridor *structure* (which track sections exist), not
@@ -31,7 +44,36 @@ export const SLOT_COUNT = 28; // 7 hours × 4 slots/hour (15 min each)
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Map a backend ScheduledBlock to a UI ShadowBlock.
+ * Extract the day index from a block id like "RPL-CASE-001-d2" or
+ * "RPL-CASE-001-d2-DEFERRED". Falls back to 0.
+ */
+export function blockDayIndex(blockId: string): number {
+  const match = /-d(\d+)(?:-DEFERRED)?$/.exec(blockId);
+  return match ? Number(match[1]) : 0;
+}
+
+/** Filter backend blocks to those belonging to a specific planning day. */
+export function blocksForDay(
+  blocks: BackendScheduledBlock[],
+  dayIndex: number,
+): BackendScheduledBlock[] {
+  return blocks.filter((b) => blockDayIndex(b.blockId) === dayIndex);
+}
+
+/** Map a day-filtered block list to UI shadow blocks (patch over a plan). */
+export function blocksToShadowBlocks(blocks: BackendScheduledBlock[]): ShadowBlock[] {
+  return blocks
+    .filter((b) => b.status === "Scheduled" || b.status === "Shadow Block")
+    .map((b, i) => blockToShadowBlock(b, i));
+}
+
+/** Map a day-filtered block list to UI conflicts/decisions. */
+export function blocksToConflicts(blocks: BackendScheduledBlock[]): Conflict[] {
+  return blocks.map(blockToConflict);
+}
+
+/**
+ * Map a list of backend ScheduledBlocks to UI ShadowBlocks.
  * The replay planning horizon begins at 08:00 and uses 15-minute slots.
  */
 function blockToShadowBlock(block: BackendScheduledBlock, index: number): ShadowBlock {
@@ -82,6 +124,7 @@ function blockToShadowBlock(block: BackendScheduledBlock, index: number): Shadow
     conflictReason: block.conflictReason ?? undefined,
     blockingTrainNumbers,
     resolved: false,
+    dayIndex: blockDayIndex(block.blockId),
   };
 }
 
@@ -97,7 +140,7 @@ function blockToConflict(block: BackendScheduledBlock): Conflict {
   });
 
   return {
-    id: `case-${block.taskId}`,
+    id: `case-${block.blockId}`,
     code: "Maintenance request",
     blockId: block.blockId,
     sector: block.trackSection,
@@ -108,6 +151,7 @@ function blockToConflict(block: BackendScheduledBlock): Conflict {
     severity: block.criticalityScore >= 0.8 ? "critical" : "warning",
     description: block.conflictReason ?? `Review the suggested maintenance time and safety requirements.`,
     resolved: false,
+    dayIndex: blockDayIndex(block.blockId),
   };
 }
 
@@ -122,11 +166,17 @@ function blockToConflict(block: BackendScheduledBlock): Conflict {
  */
 export async function fetchOptimizationSchedule(
   corridorId: string,
+  horizon: PlanningHorizon = "daily",
+  days?: number,
 ): Promise<OptimizationSchedule> {
   let response: Response;
 
+  const params = new URLSearchParams({ horizon });
+  params.set("days", String(days ?? HORIZON_DAYS[horizon]));
+  const endpoint = `${GENERATE_ENDPOINT}?${params.toString()}`;
+
   try {
-    response = await fetch(GENERATE_ENDPOINT, { method: "POST" });
+    response = await fetch(endpoint, { method: "POST" });
   } catch (networkErr) {
     throw new ApiError(
       "Cannot reach the backend. Make sure the .NET API is running on port 5053.",
@@ -176,8 +226,7 @@ export async function fetchOptimizationSchedule(
 
   const shadowBlocks: ShadowBlock[] = schedule.map((b, i) => blockToShadowBlock(b, i));
 
-  const conflicts: Conflict[] = schedule
-    .map(blockToConflict);
+  const conflicts: Conflict[] = schedule.map(blockToConflict);
 
   const planningStart = new Date(apiResult.replayContext.planningStart).getTime();
   const trains = apiResult.trainMovements.map((movement) => {
@@ -220,6 +269,10 @@ export async function fetchOptimizationSchedule(
     conflicts,
     recommendations: apiResult.recommendations ?? [],
     replayContext: apiResult.replayContext,
+    horizon: apiResult.horizon,
+    planningDays: apiResult.planningDays,
+    dayBreakdown: apiResult.dayBreakdown ?? [],
+    blocks: schedule,
   };
 }
 

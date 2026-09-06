@@ -12,14 +12,18 @@ import { Button } from "@/components/ui/button";
 import {
   AMBIENT_LOG_MESSAGES,
   CORRIDORS,
+  HORIZON_DAYS,
+  HORIZON_LABELS,
   fetchOptimizationSchedule,
   makeLog,
 } from "@/lib/railblock/service";
 import { ApiError } from "@/lib/railblock/types";
-import type { LogEntry, OptimizationSchedule } from "@/lib/railblock/types";
+import type { LogEntry, OptimizationSchedule, PlanningHorizon } from "@/lib/railblock/types";
 
 export default function App() {
   const [corridorId, setCorridorId] = useState(CORRIDORS[0]!.id);
+  const [horizon, setHorizon] = useState<PlanningHorizon>("daily");
+  const [selectedDay, setSelectedDay] = useState(0);
   const [schedule, setSchedule] = useState<OptimizationSchedule | null>(null);
   const [fetchError, setFetchError] = useState<{ title: string; detail: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,13 +43,18 @@ export default function App() {
   }, []);
 
   const loadSchedule = useCallback(
-    async (id: string, cancelled: { value: boolean }) => {
+    async (
+      id: string,
+      hz: PlanningHorizon,
+      cancelled: { value: boolean },
+    ) => {
       setLoading(true);
       setFetchError(null);
       setSchedule(null);
-      pushLog("Preparing the saved timetable scenario…", "info");
+      pushLog(`Preparing the saved timetable scenario (${HORIZON_LABELS[hz]} plan)…`, "info");
+
       try {
-        const data = await fetchOptimizationSchedule(id);
+        const data = await fetchOptimizationSchedule(id, hz, HORIZON_DAYS[hz]);
         if (cancelled.value) return;
         setSchedule(data);
         pushLog(`Plan ready — ${data.kpis.trainsMonitored} maintenance requests reviewed.`, "success");
@@ -93,9 +102,16 @@ export default function App() {
     [corridorId],
   );
 
+  // Day-scoped view: the backend returns all days' decisions for the horizon;
+  // the UI shows the selected planning day while keeping resolve state global.
+  const dayBreakdown = schedule?.dayBreakdown ?? [];
+  const clampedDay = Math.min(selectedDay, Math.max(0, dayBreakdown.length - 1));
+  const displayConflicts = (schedule?.conflicts ?? []).filter((c) => c.dayIndex === clampedDay);
+  const displayShadowBlocks = (schedule?.shadowBlocks ?? []).filter((sb) => sb.dayIndex === clampedDay);
+
   const activeConflict =
-    schedule?.conflicts.find((c) => c.id === selectedConflictId && !c.resolved) ??
-    schedule?.conflicts.find((c) => !c.resolved) ??
+    displayConflicts.find((c) => c.id === selectedConflictId && !c.resolved) ??
+    displayConflicts.find((c) => !c.resolved) ??
     null;
   const activeRecommendation =
     schedule?.recommendations.find((r) => r.conflictId === activeConflict?.id) ?? null;
@@ -116,8 +132,12 @@ export default function App() {
             avgDelaySavedMinutes: Math.round((prev.kpis.avgDelaySavedMinutes + activeRecommendation.delaySavedMinutes / 4) * 10) / 10,
             throughputEfficiencyPct: Math.round(Math.min(99.9, prev.kpis.throughputEfficiencyPct + activeRecommendation.throughputDeltaPct) * 10) / 10,
           },
-          conflicts: prev.conflicts.map((c) => c.id === activeConflict.id ? { ...c, resolved: true } : c),
-          shadowBlocks: prev.shadowBlocks.map((sb) => sb.sector === activeConflict.sector ? { ...sb, resolved: true } : sb),
+          conflicts: prev.conflicts.map((c) =>
+            c.id === activeConflict.id ? { ...c, resolved: true } : c,
+          ),
+          shadowBlocks: prev.shadowBlocks.map((sb) =>
+            sb.id === activeConflict.blockId ? { ...sb, resolved: true } : sb,
+          ),
           trains: prev.trains.map((t) => {
             const step = steps.find((s) => s.trainNumber === t.number);
             if (!step) return t;
@@ -182,6 +202,7 @@ export default function App() {
         kpis={kpis}
         onOpenGuide={() => setGuideOpen(true)}
         replayContext={schedule?.replayContext}
+        horizonLabel={schedule ? `${HORIZON_LABELS[schedule.horizon ?? "daily"]} plan` : undefined}
       />
 
       {/* ── Right: everything else stacks vertically ── */}
@@ -250,13 +271,37 @@ export default function App() {
             </div>
           )}
 
-          {/* Loading indicator */}
-          {loading && !fetchError && (
-            <div className="mx-6 mt-4 flex items-center gap-3 rounded-lg border border-border bg-white px-5 py-3">
-              <RefreshCw className="size-4 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Preparing the saved timetable scenario…</p>
+            {/* Planning horizon toggle: daily / weekly / monthly */}
+            <div className="flex overflow-hidden rounded-md border border-border bg-background/60">
+              {(Object.keys(HORIZON_LABELS) as PlanningHorizon[]).map((hz) => (
+                <button
+                  key={hz}
+                  onClick={() => setHorizon(hz)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    horizon === hz
+                      ? "bg-success/15 text-success"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  }`}
+                >
+                  {HORIZON_LABELS[hz]}
+                </button>
+              ))}
             </div>
-          )}
+
+            {/* Retry / Refresh button replaces the old "Load sample plan" */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              onClick={() => {
+                const cancelled = { value: false };
+                void loadSchedule(corridorId, horizon, cancelled);
+              }}
+              className="h-9 gap-1.5"
+            >
+              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+              {loading ? "Loading…" : "Refresh"}
+            </Button>
 
           {/* TrackView */}
           <div className="mx-6 mt-5">
@@ -279,14 +324,48 @@ export default function App() {
             )}
           </div>
 
-          {/* WorkQueue + DecisionPanel side by side */}
-          <div className="mx-6 mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <WorkQueue
-              conflicts={schedule?.conflicts ?? []}
-              recommendations={schedule?.recommendations ?? []}
-              selectedId={activeConflict?.id ?? null}
-              onSelect={setSelectedConflictId}
-              onOpenGuide={() => setGuideOpen(true)}
+          {/* Day selector for weekly / monthly horizons */}
+          {dayBreakdown.length > 1 && !fetchError && (
+            <div className="panel-surface flex flex-wrap items-center gap-1.5 px-4 py-2.5">
+              <span className="mr-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Planning day
+              </span>
+              {dayBreakdown.map((day, i) => (
+                <button
+                  key={day.date}
+                  onClick={() => { setSelectedDay(i); setSelectedConflictId(null); setSimulation(null); }}
+                  title={`${day.scheduled} scheduled · ${day.deferred} deferred · ${day.availabilityGainPct}% window used`}
+                  className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    i === clampedDay
+                      ? "border-success/50 bg-success/15 text-success"
+                      : "border-border bg-background/50 text-muted-foreground hover:bg-accent/50"
+                  }`}
+                >
+                  {day.label}
+                  <span className="ml-1.5 inline-flex items-center gap-1 text-[9px] opacity-80">
+                    <span className="size-1.5 rounded-full bg-success/80" />
+                    {day.scheduled}
+                    {day.deferred > 0 && <span className="size-1.5 rounded-full bg-destructive/70" />}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Show a subtle warning strip on the track view when errored */}
+          {fetchError ? (
+            <div className="panel-surface flex items-center justify-center gap-3 py-16 text-muted-foreground">
+              <AlertTriangle className="size-5 text-destructive/60" />
+              <p className="text-sm">Track view unavailable — no schedule data.</p>
+            </div>
+          ) : (
+            <TrackView
+              sectors={corridor.sectors}
+              trains={schedule?.trains ?? []}
+              shadowBlocks={displayShadowBlocks}
+              windowOffset={windowOffset}
+              selectedTrain={selectedTrain}
+              onSelectTrain={setSelectedTrain}
             />
             <DecisionPanel
               conflict={activeConflict}
@@ -300,10 +379,15 @@ export default function App() {
             />
           </div>
 
-          {/* Activity log */}
-          <div className="mx-6 mt-5 pb-8">
-            <LogStream logs={logs} />
-          </div>
+        <section className="xl:col-start-1 xl:row-start-1">
+          <WorkQueue
+            conflicts={displayConflicts}
+            recommendations={schedule?.recommendations ?? []}
+            selectedId={activeConflict?.id ?? null}
+            onSelect={setSelectedConflictId}
+            onOpenGuide={() => setGuideOpen(true)}
+          />
+        </section>
 
           {/* Debug drawer (sticky at bottom of scroll area) */}
           <DebugDrawer open={debugOpen} onToggle={() => setDebugOpen((v) => !v)} payload={schedule} />

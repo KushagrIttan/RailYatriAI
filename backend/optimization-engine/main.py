@@ -17,14 +17,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, timedelta
+import sys
 import httpx
 import json
 import os
 import logging
+import re
 from enum import Enum
 from collections import defaultdict
 
 logger = logging.getLogger("railblock")
+
+# Optional ML prioritization module (kept import-safe so the engine still runs
+# if scikit-learn or the trained model is unavailable).
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ml"))
+    from prioritizer import PriorityModel, build_features  # type: ignore
+    _ML_PRIORITIZER = PriorityModel()
+    _PRIORITIZER_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "ml", "prioritizer_model.pkl")
+    if os.path.exists(_PRIORITIZER_MODEL_PATH):
+        import pickle as _pickle
+        with open(_PRIORITIZER_MODEL_PATH, "rb") as _f:
+            _ML_PRIORITIZER = _pickle.load(_f)
+        _ML_STATUS = "ml"
+    else:
+        _ML_STATUS = "untrained"
+except Exception as _e:  # noqa: BLE001
+    _ML_PRIORITIZER = None
+    _ML_STATUS = f"unavailable ({_e})"
+    _ML_ERROR = str(_e)
 
 # URL of the .NET API data endpoint
 DOTNET_API_BASE = os.environ.get("DOTNET_API_BASE", "http://localhost:5053")
@@ -116,6 +137,8 @@ class ReplayContext(BaseModel):
     captured_at: datetime
     source_system: str
     source_note: str
+    horizon: str = "daily"      # daily | weekly | monthly
+    planning_days: int = 1
 
 class TrainMovement(BaseModel):
     id: str
@@ -175,11 +198,43 @@ class PrioritizationEngine:
         "Traction Distribution": 0.85
     }
     
+    # The ML module may be unavailable; track whether we are scoring via the
+    # calibrated gradient-boosted model or the classic heuristic.
+    ML_ENABLED = isinstance(_ML_PRIORITIZER, PriorityModel) and _ML_PRIORITIZER.trained
+
     @classmethod
-    def calculate_priority_score(cls, task: MaintenanceTask) -> float:
+    def calculate_priority_score(cls, task: MaintenanceTask, defect: Optional[dict] = None) -> float:
+        """Return the priority score in [0,1].
+
+        Prefers the calibrated ML model; falls back to the classic heuristic so
+        the engine is robust. The ML path is ~13-feature based and includes the
+        linked defect's age + severity and corridor train density.
+        """
+        if cls.ML_ENABLED:
+            try:
+                feat = build_features(
+                    {
+                        "priority": task.priority,
+                        "department": task.department,
+                        "task_type": task.task_type,
+                        "criticality_score": task.criticality_score,
+                        "track_section": task.track_section,
+                        "required_resources": task.required_resources,
+                        "dependencies": task.dependencies,
+                        "duration_minutes": task.duration_minutes,
+                    },
+                    defect,
+                )
+                score, used_model = _ML_PRIORITIZER.predict(feat)
+                return round(float(score), 3)
+            except Exception:
+                pass  # fall through to heuristic on any ML error
+        return cls._heuristic_score(task)
+
+    @classmethod
+    def _heuristic_score(cls, task: MaintenanceTask) -> float:
         priority_weight = cls.PRIORITY_WEIGHTS.get(task.priority, 0.5)
         dept_factor = cls.DEPARTMENT_CRITICALITY.get(task.department, 0.7)
-        
         score = (
             priority_weight * 0.5 +
             task.criticality_score * 0.3 +
@@ -188,15 +243,19 @@ class PrioritizationEngine:
         return round(score, 3)
     
     @classmethod
-    def rank_tasks(cls, tasks: List[MaintenanceTask]) -> List[MaintenanceTask]:
-        return sorted(tasks, key=lambda t: cls.calculate_priority_score(t), reverse=True)
+    def rank_tasks(cls, tasks: List[MaintenanceTask], defects_by_task: Optional[dict] = None) -> List[MaintenanceTask]:
+        def key(t):
+            defect = (defects_by_task or {}).get(t.task_id)
+            return cls.calculate_priority_score(t, defect)
+        return sorted(tasks, key=key, reverse=True)
 
 # ============= SCHEDULING ENGINE =============
 
 class SchedulingEngine:
-    def __init__(self, tasks: List[MaintenanceTask], windows: List[CorridorWindow]):
-        self.tasks = PrioritizationEngine.rank_tasks(tasks)
+    def __init__(self, tasks: List[MaintenanceTask], windows: List[CorridorWindow], defects_by_task: Optional[dict] = None):
+        self.tasks = PrioritizationEngine.rank_tasks(tasks, defects_by_task)
         self.windows = sorted(windows, key=lambda w: w.available_start)
+        self.defects_by_task = defects_by_task or {}
         self.schedule: List[ScheduledBlock] = []
         self.window_usage = defaultdict(list) 
         
@@ -379,6 +438,17 @@ def _load_data_from_files() -> OptimizationRequest:
     return OptimizationRequest(tasks=tasks, corridor_windows=windows)
 
 
+def _load_defects_by_task() -> dict:
+    """Load defects.json and index by the linked task_id for ML ranking."""
+    data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
+    defects_path = os.path.join(data_dir, "defects.json")
+    if not os.path.exists(defects_path):
+        return {}
+    with open(defects_path, encoding="utf-8") as f:
+        raw = json.load(f)
+    return {d.get("task_id"): d for d in raw if d.get("task_id")}
+
+
 def _replay_priority(case: MaintenanceCase) -> int:
     return {"emergency": 0, "urgent": 1, "planned": 2}.get(case.urgency, 3)
 
@@ -418,63 +488,113 @@ def _derive_replay_gaps(request: ReplayOptimizationRequest) -> List[dict]:
     return gaps
 
 
+def _horizon_planning_days(request: ReplayOptimizationRequest) -> int:
+    """Derive the number of planning days from the requested horizon."""
+    ctx = request.replay_context
+    if getattr(ctx, "planning_days", 0) and int(ctx.planning_days) > 1:
+        return int(ctx.planning_days)
+    return {"daily": 1, "weekly": 7, "monthly": 30}.get(ctx.horizon, 1)
+
+
 def optimize_replay(request: ReplayOptimizationRequest) -> OptimizationResult:
-    """Schedule procedure-driven cases into gaps derived from a frozen timetable."""
+    """
+    Schedule procedure-driven cases into gaps derived from a frozen timetable,
+    across the requested planning horizon (daily / weekly / monthly).
+
+    Each maintenance case is a repeatable work item with a recurrence interval.
+    Within the horizon, every day's timetable gap is a candidate slot; a case is
+    scheduled on a day when a safe gap exists and none is already reserved.
+    """
     profiles = {profile.id: profile for profile in request.procedure_profiles}
-    gaps = _derive_replay_gaps(request)
-    used = []
-    schedule = []
+    days = _horizon_planning_days(request)
+
+    # Recurrence: a case is demanded once per day of the horizon (a daily demand
+    # pattern). This models recurring/weekly/monthly maintenance load honestly.
+    horizon_days = list(range(days))
+    total_requests = len(request.maintenance_cases) * days
+
+    schedule: List[ScheduledBlock] = []
     scheduled_count = 0
 
-    for case in sorted(request.maintenance_cases, key=_replay_priority):
-        profile = profiles.get(case.procedure_profile_id)
-        if profile is None:
-            raise HTTPException(status_code=422, detail=f"Unknown procedure profile: {case.procedure_profile_id}")
-        required = case.estimated_work_minutes + profile.minimum_setup_minutes + profile.minimum_clearance_minutes
-        chosen = None
-        for gap in gaps:
-            candidate_start = max(gap["start"], case.reported_at)
-            candidate_end = candidate_start + timedelta(minutes=required)
-            overlaps_reserved = any(candidate_start < end and candidate_end > start for start, end in used)
-            if candidate_end <= gap["end"] and not overlaps_reserved:
-                chosen = (candidate_start, candidate_end)
-                break
+    for d in horizon_days:
+        day_offset = timedelta(days=d)
+        used: List[tuple] = []
 
-        priority = {"emergency": "Critical", "urgent": "High", "planned": "Medium"}.get(case.urgency, "Low")
-        if chosen:
-            access = []
-            if profile.traffic_block_required: access.append("temporary track closure")
-            if profile.power_block_required: access.append("electrical isolation")
-            if profile.disconnection_notice_required: access.append("equipment disconnection notice")
-            if profile.permit_to_work_required: access.append("formal safety clearance")
-            work_start = chosen[0] + timedelta(minutes=profile.minimum_setup_minutes)
-            work_end = work_start + timedelta(minutes=case.estimated_work_minutes)
-            schedule.append(ScheduledBlock(
-                block_id=f"RPL-{case.case_id}", task_id=case.case_id, department=case.department,
-                track_section=case.section_id, location_km=case.location_reference,
-                scheduled_start=work_start, scheduled_end=work_end,
-                duration_minutes=case.estimated_work_minutes, priority=priority,
-                criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
-                window_id=f"GAP-{chosen[0].strftime('%H%M')}", status=ScheduleStatus.SCHEDULED,
-                conflict_reason=f"Safety requirements: {', '.join(access)}."
-            ))
-            used.append(chosen)
-            scheduled_count += 1
-        else:
-            schedule.append(ScheduledBlock(
-                block_id=f"RPL-{case.case_id}-DEFERRED", task_id=case.case_id, department=case.department,
-                track_section=case.section_id, location_km=case.location_reference,
-                scheduled_start=datetime.min, scheduled_end=datetime.min,
-                duration_minutes=case.estimated_work_minutes, priority=priority,
-                criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
-                window_id="NONE", status=ScheduleStatus.DEFERRED,
-                conflict_reason="No safe gap in the saved timetable is long enough for this work."
-            ))
+        # Build a day-shifted copy of the request so timetable + gaps reflect day `d`.
+        shifted = request.model_copy(deep=True)
+        shifted.replay_context.planning_start = shifted.replay_context.planning_start + day_offset
+        shifted.replay_context.planning_end = shifted.replay_context.planning_end + day_offset
+        for m in shifted.train_movements:
+            m.scheduled_entry = m.scheduled_entry + day_offset
+            m.scheduled_exit = m.scheduled_exit + day_offset
+        for c in shifted.maintenance_cases:
+            c.reported_at = c.reported_at + day_offset
+
+        gaps = _derive_replay_gaps(shifted)
+        day_blocks: List[ScheduledBlock] = []
+
+        for case in sorted(shifted.maintenance_cases, key=_replay_priority):
+            profile = profiles.get(case.procedure_profile_id)
+            if profile is None:
+                raise HTTPException(status_code=422, detail=f"Unknown procedure profile: {case.procedure_profile_id}")
+            required = case.estimated_work_minutes + profile.minimum_setup_minutes + profile.minimum_clearance_minutes
+            chosen = None
+            for gap in gaps:
+                candidate_start = max(gap["start"], case.reported_at)
+                candidate_end = candidate_start + timedelta(minutes=required)
+                overlaps_reserved = any(candidate_start < end and candidate_end > start for start, end in used)
+                if candidate_end <= gap["end"] and not overlaps_reserved:
+                    chosen = (candidate_start, candidate_end)
+                    break
+
+            priority = {"emergency": "Critical", "urgent": "High", "planned": "Medium"}.get(case.urgency, "Low")
+            day_tag = f"d{d}"
+            if chosen:
+                access = []
+                if profile.traffic_block_required: access.append("temporary track closure")
+                if profile.power_block_required: access.append("electrical isolation")
+                if profile.disconnection_notice_required: access.append("equipment disconnection notice")
+                if profile.permit_to_work_required: access.append("formal safety clearance")
+                work_start = chosen[0] + timedelta(minutes=profile.minimum_setup_minutes)
+                work_end = work_start + timedelta(minutes=case.estimated_work_minutes)
+                block = ScheduledBlock(
+                    block_id=f"RPL-{case.case_id}-{day_tag}", task_id=case.case_id, department=case.department,
+                    track_section=case.section_id, location_km=case.location_reference,
+                    scheduled_start=work_start, scheduled_end=work_end,
+                    duration_minutes=case.estimated_work_minutes, priority=priority,
+                    criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
+                    window_id=f"GAP-{chosen[0].strftime('%H%M')}", status=ScheduleStatus.SCHEDULED,
+                    conflict_reason=f"Safety requirements: {', '.join(access)}."
+                )
+                schedule.append(block)
+                day_blocks.append(block)
+                used.append(chosen)
+                scheduled_count += 1
+            else:
+                block = ScheduledBlock(
+                    block_id=f"RPL-{case.case_id}-{day_tag}-DEFERRED", task_id=case.case_id, department=case.department,
+                    track_section=case.section_id, location_km=case.location_reference,
+                    scheduled_start=datetime.min, scheduled_end=datetime.min,
+                    duration_minutes=case.estimated_work_minutes, priority=priority,
+                    criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
+                    window_id="NONE", status=ScheduleStatus.DEFERRED,
+                    conflict_reason="No safe gap in the saved timetable is long enough for this work."
+                )
+                schedule.append(block)
+                day_blocks.append(block)
+
+    # Asset availability gain across the horizon: share of each day's usable
+    # planning window consumed by scheduled maintenance (scale-invariant).
+    availability_gain = 0.0
+    if schedule:
+        horizon_minutes = max(1, (request.replay_context.planning_end - request.replay_context.planning_start).total_seconds() / 60)
+        total_work = sum(b.duration_minutes for b in schedule if b.status == ScheduleStatus.SCHEDULED)
+        availability_gain = round(min((total_work / (days * horizon_minutes)) * 100, 100.0), 1)
 
     return OptimizationResult(
-        total_tasks=len(request.maintenance_cases), scheduled_tasks=scheduled_count,
-        shadow_blocks=0, conflicts_detected=len(request.maintenance_cases) - scheduled_count,
-        asset_availability_gain=0.0, schedule=schedule
+        total_tasks=total_requests, scheduled_tasks=scheduled_count,
+        shadow_blocks=0, conflicts_detected=total_requests - scheduled_count,
+        asset_availability_gain=availability_gain, schedule=schedule
     )
 
 
@@ -504,7 +624,7 @@ def _replay_response(request: ReplayOptimizationRequest, result: OptimizationRes
         if profile.disconnection_notice_required: requirements.append("equipment disconnection notice")
         if profile.permit_to_work_required: requirements.append("formal safety clearance")
         recommendations.append({
-            "id": f"REC-{case.case_id}", "conflictId": f"case-{case.case_id}",
+            "id": f"REC-{block.block_id}", "conflictId": f"case-{block.block_id}",
             "strategy": f"Use the first suitable gap in the saved timetable for {case.description}" if is_scheduled else "No safe maintenance time is available in this saved timetable",
             "confidence": 0.82 if is_scheduled else 0.25, "delaySavedMinutes": 0.0,
             "throughputDeltaPct": 0.0, "computeMs": 1,
@@ -524,8 +644,37 @@ def _replay_response(request: ReplayOptimizationRequest, result: OptimizationRes
         "headwayBufferMinutes": 15, "occupiedByTrainIds": gap["occupied_by_train_ids"],
     } for gap in gaps]
 
+    # Per-day breakdown. Blocks carry a day tag (-dN) in their id, which is
+    # reliable for both scheduled and deferred entries.
+    days = _horizon_planning_days(request)
+    by_day: dict[int, list] = {d: [] for d in range(days)}
+    for block in result.schedule:
+        day_match = re.search(r"-d(\d+)(?:-DEFERRED)?$", block.block_id)
+        day_index = int(day_match.group(1)) if day_match else 0
+        if 0 <= day_index < days:
+            by_day[day_index].append(block)
+    day_breakdown = []
+    anchor = request.replay_context.planning_start.date()
+    horizon_minutes = max(1, (request.replay_context.planning_end - request.replay_context.planning_start).total_seconds() / 60)
+    for offset in range(days):
+        blocks = by_day[offset]
+        scheduled = [b for b in blocks if b.status == ScheduleStatus.SCHEDULED]
+        day_date = anchor + timedelta(days=offset)
+        work_min = sum(b.duration_minutes for b in scheduled)
+        day_breakdown.append({
+            "date": day_date.isoformat(),
+            "label": day_date.strftime("%a %d %b"),
+            "totalRequests": len(blocks),
+            "scheduled": len(scheduled),
+            "deferred": len(blocks) - len(scheduled),
+            "workMinutes": work_min,
+            "availabilityGainPct": round(min((work_min / horizon_minutes) * 100, 100.0), 1),
+        })
+
     return {
         "mode": "replay",
+        "horizon": request.replay_context.horizon,
+        "planningDays": _horizon_planning_days(request),
         "replayContext": {
             "corridorId": request.replay_context.corridor_id,
             "corridorLabel": request.replay_context.corridor_label,
@@ -534,6 +683,8 @@ def _replay_response(request: ReplayOptimizationRequest, result: OptimizationRes
             "capturedAt": request.replay_context.captured_at.isoformat(),
             "sourceSystem": request.replay_context.source_system,
             "sourceNote": request.replay_context.source_note,
+            "horizon": request.replay_context.horizon,
+            "planningDays": request.replay_context.planning_days,
         },
         "trainMovements": [{
             "id": movement.id, "number": movement.train_number, "name": movement.train_name,
@@ -544,8 +695,10 @@ def _replay_response(request: ReplayOptimizationRequest, result: OptimizationRes
         "windowCandidates": window_candidates,
         "totalTasks": result.total_tasks, "scheduledTasks": result.scheduled_tasks,
         "conflictsDetected": result.conflicts_detected,
+        "assetAvailabilityGain": result.asset_availability_gain,
         "schedule": [_camel_case_block(block) for block in result.schedule],
         "recommendations": recommendations,
+        "dayBreakdown": day_breakdown,
     }
 
 
@@ -566,6 +719,8 @@ async def health():
         "engine": "Greedy-Shadow V2",
         "dotnet_api": dotnet_status,
         "dotnet_url": DOTNET_DATA_URL,
+        "ml_prioritization": _ML_STATUS,
+        "ml_active": isinstance(_ML_PRIORITIZER, PriorityModel) and _ML_PRIORITIZER.trained,
     }
 
 
@@ -578,7 +733,8 @@ async def optimize_schedule(request: OptimizationRequest):
     if not request.tasks or not request.corridor_windows:
         raise HTTPException(status_code=400, detail="Request body must contain 'tasks' and 'corridor_windows'.")
     logger.info("POST /optimize — %d tasks, %d windows", len(request.tasks), len(request.corridor_windows))
-    engine = SchedulingEngine(request.tasks, request.corridor_windows)
+    defects = _load_defects_by_task()
+    engine = SchedulingEngine(request.tasks, request.corridor_windows, defects)
     result = engine.optimize()
     logger.info(
         "Optimization done: %d/%d scheduled, %d shadow blocks, %d deferred, %.1f%% availability gain",
@@ -596,6 +752,8 @@ async def optimize_replay_schedule(request: ReplayOptimizationRequest):
         raise HTTPException(status_code=422, detail="Replay optimization requires data_mode='replay'.")
     if not request.train_movements or not request.maintenance_cases:
         raise HTTPException(status_code=400, detail="Replay requires train movements and maintenance cases.")
+    if request.replay_context.horizon not in ("daily", "weekly", "monthly"):
+        raise HTTPException(status_code=422, detail=f"Unsupported horizon: {request.replay_context.horizon}")
     return _replay_response(request, optimize_replay(request))
 
 
@@ -618,7 +776,8 @@ async def data_optimize():
             raise
 
     logger.info("Running optimization via /data-optimize (source: %s)", source)
-    engine = SchedulingEngine(data.tasks, data.corridor_windows)
+    defects = _load_defects_by_task()
+    engine = SchedulingEngine(data.tasks, data.corridor_windows, defects)
     return engine.optimize()
 
 
@@ -631,8 +790,22 @@ async def data_optimize_live():
     """
     data = await _fetch_data_from_dotnet()   # raises 503 if .NET is down — intentional
     logger.info("Running optimization via /data-optimize-live (source: .NET API)")
-    engine = SchedulingEngine(data.tasks, data.corridor_windows)
+    defects = _load_defects_by_task()
+    engine = SchedulingEngine(data.tasks, data.corridor_windows, defects)
     return engine.optimize()
+
+
+@app.get("/model")
+def model_status():
+    """Expose ML prioritization status + calibration for the audit/demo UI."""
+    used = isinstance(_ML_PRIORITIZER, PriorityModel) and _ML_PRIORITIZER.trained
+    return {
+        "engine": "GradientBoosting + IsotonicCalibration",
+        "status": _ML_STATUS,
+        "active_in_scheduler": used,
+        "metrics": _ML_PRIORITIZER.metrics if used else {},
+        "feature_count": _ML_PRIORITIZER.metrics.get("feature_count") if used else 0,
+    }
 
 
 @app.get("/test-optimize", response_model=OptimizationResult)

@@ -26,9 +26,11 @@ public class OptimizationController : ControllerBase
     }
 
     [HttpPost("generate")]
-    public async Task<IActionResult> GenerateOptimizedSchedule()
+    public async Task<IActionResult> GenerateOptimizedSchedule(
+        [FromQuery] string? horizon = null,
+        [FromQuery] int? days = null)
     {
-        _logger.LogInformation("=== Replay optimization request received ===");
+        _logger.LogInformation("=== Replay optimization request received (horizon: {Horizon}, days: {Days}) ===", horizon ?? "daily", days ?? 1);
 
         try
         {
@@ -39,12 +41,26 @@ public class OptimizationController : ControllerBase
                 context.GetProperty("corridor_id").GetString(),
                 context.GetProperty("captured_at").GetString());
 
+            // Inject the requested planning horizon into the forwarded bundle.
+            var payload = System.Text.Json.Nodes.JsonNode.Parse(replayBundle.RootElement.GetRawText());
+            var ctxNode = payload!["replay_context"]!;
+            if (!string.IsNullOrWhiteSpace(horizon))
+            {
+                ctxNode["horizon"] = horizon;
+                ctxNode["planning_days"] = horizon.ToLowerInvariant() switch
+                {
+                    "weekly" => days ?? 7,
+                    "monthly" => days ?? 30,
+                    _ => days ?? 1,
+                };
+            }
+
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(30);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:8000/replay/optimize")
             {
-                Content = new StringContent(replayBundle.RootElement.GetRawText(), System.Text.Encoding.UTF8, "application/json")
+                Content = new StringContent(payload!.ToJsonString(), System.Text.Encoding.UTF8, "application/json")
             };
             var response = await client.SendAsync(request, HttpContext.RequestAborted);
 
