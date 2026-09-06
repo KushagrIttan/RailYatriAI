@@ -1,5 +1,6 @@
-import { Activity, ClipboardCheck } from "lucide-react";
-import type { KpiSnapshot } from "@/lib/railblock/types";
+import { Activity, CircleHelp, ClipboardCheck, Info } from "lucide-react";
+import type { KpiSnapshot, ReplayContext } from "@/lib/railblock/types";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function Kpi({
   label,
@@ -7,12 +8,14 @@ function Kpi({
   suffix,
   tone = "default",
   fill,
+  help,
 }: {
   label: string;
   value: string;
   suffix?: string;
   tone?: "default" | "success" | "warning" | "danger";
   fill?: number;
+  help?: string;
 }) {
   const toneClass =
     tone === "success"
@@ -33,8 +36,9 @@ function Kpi({
 
   return (
     <div className="panel-surface relative overflow-hidden px-4 py-3">
-      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         {label}
+        {help && <Tooltip><TooltipTrigger asChild><button aria-label={`About ${label}`} className="text-muted-foreground hover:text-foreground"><Info className="size-3" /></button></TooltipTrigger><TooltipContent className="max-w-56 normal-case tracking-normal">{help}</TooltipContent></Tooltip>}
       </div>
       <div className={`num mt-1 text-2xl font-semibold ${toneClass}`}>
         {value}
@@ -50,8 +54,9 @@ function Kpi({
   );
 }
 
-export function TopBar({ kpis }: { kpis: KpiSnapshot }) {
+export function TopBar({ kpis, onOpenGuide, replayContext }: { kpis: KpiSnapshot; onOpenGuide: () => void; replayContext?: ReplayContext }) {
   return (
+    <TooltipProvider delayDuration={150}>
     <header className="border-b border-border bg-panel/70 backdrop-blur">
       <div className="flex flex-wrap items-center gap-4 px-5 py-3">
         <div className="flex items-center gap-3">
@@ -64,7 +69,7 @@ export function TopBar({ kpis }: { kpis: KpiSnapshot }) {
               Rail<span className="text-success">Block</span>AI
             </h1>
             <p className="text-[11px] text-muted-foreground">
-              Maintenance planning &amp; corridor access
+              Plan maintenance around saved train times
             </p>
           </div>
         </div>
@@ -72,38 +77,43 @@ export function TopBar({ kpis }: { kpis: KpiSnapshot }) {
         <div className="flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1.5">
           <Activity className="size-3.5 text-success" />
           <span className="animate-ticker num text-[11px] font-medium tracking-tight text-success">
-            PLANNING ENGINE ACTIVE · LAST PLAN READY
+            {replayContext ? `SAVED TIMETABLE SCENARIO · ${new Date(replayContext.capturedAt).toLocaleDateString("en-IN")}` : "PLANNING SCENARIO"}
           </span>
         </div>
 
         <div className="num ml-auto text-[11px] text-muted-foreground">
-          Maintenance Control Desk · NDLS-OCC-04
+          {replayContext ? `${replayContext.corridorLabel} · saved train times` : "Maintenance planning workspace"}
         </div>
+        <button onClick={onOpenGuide} className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><CircleHelp className="size-4" />How this works</button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 px-5 pb-4 lg:grid-cols-4">
-        <Kpi label="Work packages assessed" value={String(kpis.trainsMonitored)} fill={kpis.trainsMonitored * 3} />
+        <Kpi label="Maintenance requests reviewed" value={String(kpis.trainsMonitored)} fill={kpis.trainsMonitored * 3} help="The maintenance requests considered in this saved timetable scenario." />
         <Kpi
-          label="Decisions awaiting review"
+          label="Maintenance decisions to review"
           value={String(kpis.activeConflicts)}
           tone={kpis.activeConflicts > 0 ? "danger" : "success"}
           fill={kpis.activeConflicts * 25 + 8}
+          help="Suggested work times that still need a planning decision in this prototype."
         />
         <Kpi
-          label="Expected delay avoided"
+          label="Estimated disruption avoided"
           value={kpis.avgDelaySavedMinutes.toFixed(1)}
           suffix="mins"
           tone="warning"
           fill={kpis.avgDelaySavedMinutes * 5}
+          help="A timetable-based estimate, not a live prediction."
         />
         <Kpi
-          label="Corridor availability"
+          label="Time available for maintenance"
           value={kpis.throughputEfficiencyPct.toFixed(1)}
           suffix="%"
           tone="success"
           fill={kpis.throughputEfficiencyPct}
+          help="The share of the saved timetable horizon that has a gap between scheduled trains."
         />
       </div>
     </header>
+    </TooltipProvider>
   );
 }

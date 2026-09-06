@@ -8,6 +8,10 @@ const CLASS_STYLE: Record<Train["trainClass"], string> = {
   suburban: "border-suburban/35 bg-suburban/10 text-suburban/80",
 };
 
+function sectionLabel(section: string) {
+  return section === "DLI-GZB-DN" ? "Delhi Junction → Ghaziabad" : section;
+}
+
 export function TrackView({
   sectors,
   trains,
@@ -30,10 +34,10 @@ export function TrackView({
     <div className="panel-surface overflow-hidden">
       <div className="flex items-center justify-between border-b border-border bg-background/45 px-4 py-3">
         <div>
-          <div className="flex items-center gap-2"><Wrench className="size-4 text-success" /><h2 className="text-sm font-semibold">Proposed maintenance windows</h2></div>
-          <p className="mt-0.5 text-xs text-muted-foreground">Work access is primary. Train movements are shown only as operating context.</p>
+          <div className="flex items-center gap-2"><Wrench className="size-4 text-success" /><h2 className="text-sm font-semibold">Suggested maintenance times</h2></div>
+          <p className="mt-0.5 text-xs text-muted-foreground">These suggestions use gaps in the saved train timetable. They are not live operating instructions.</p>
         </div>
-        <span className="hidden rounded-full bg-success/10 px-2 py-1 text-[10px] font-medium text-success sm:block">Planner view</span>
+        <span className="hidden rounded-full bg-success/10 px-2 py-1 text-[10px] font-medium text-success sm:block">Saved timetable</span>
       </div>
       <div className="flex border-b border-border bg-background/25">
         <div className="w-32 shrink-0 border-r border-border px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Track section</div>
@@ -43,7 +47,7 @@ export function TrackView({
               key={s}
               className="num border-r border-grid-line/50 py-2 text-center text-[9px] text-muted-foreground last:border-r-0"
             >
-              {s % 4 === 0 ? `${String(16 + Math.floor(s / 4)).padStart(2, "0")}:00` : ""}
+              {s % 4 === 0 ? `${String(8 + Math.floor(s / 4)).padStart(2, "0")}:00` : ""}
             </div>
           ))}
         </div>
@@ -63,8 +67,8 @@ export function TrackView({
           return (
             <div key={sector} className="flex border-b border-border last:border-b-0">
               <div className="flex w-32 shrink-0 flex-col justify-center border-r border-border px-3 py-3">
-                <span className="num text-xs font-semibold">Section {sector}</span>
-                <span className="mt-0.5 text-[10px] text-muted-foreground">{rowShadows.length ? "Access review required" : "No access request"}</span>
+                <span className="text-xs font-semibold">{sectionLabel(sector)}</span>
+                <span className="mt-0.5 text-[10px] text-muted-foreground">{rowShadows.length ? "Maintenance decision ready" : "No maintenance request"}</span>
               </div>
               <div
                 className="relative grid flex-1"
@@ -91,7 +95,7 @@ export function TrackView({
                     >
                       <span className="flex min-w-0 items-center gap-1 text-[10px] font-semibold">
                         <AlertTriangle className="size-2.5" />
-                        <span className="truncate">Maintenance access · {sb.label}</span>
+                        <span className="truncate">Suggested maintenance work · {sb.label}</span>
                       </span>
                     </div>
                   ),
@@ -125,9 +129,9 @@ export function TrackView({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border bg-background/35 px-4 py-2.5 text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-destructive/70" />Critical access risk</span>
-        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-warning/70" />Access window to review</span>
-        <span className="flex items-center gap-1.5"><TrainFront className="size-3 text-suburban" />Train movement context</span>
+        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-destructive/70" />Urgent maintenance work</span>
+        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-warning/70" />Suggested maintenance time</span>
+        <span className="flex items-center gap-1.5"><TrainFront className="size-3 text-suburban" />Scheduled train</span>
       </div>
     </div>
   );

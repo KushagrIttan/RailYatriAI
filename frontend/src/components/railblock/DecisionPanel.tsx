@@ -30,9 +30,9 @@ export function DecisionPanel({
     return (
       <div className="panel-surface flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
         <ShieldCheck className="size-8 text-success" />
-        <p className="text-sm font-medium">All maintenance windows reviewed</p>
+        <p className="text-sm font-medium">All maintenance requests reviewed</p>
         <p className="text-xs text-muted-foreground">
-          No access windows need an operating decision in this projection.
+          No maintenance requests need a decision in this saved scenario.
         </p>
       </div>
     );
@@ -54,7 +54,7 @@ export function DecisionPanel({
           <AlertOctagon className={`mt-0.5 size-4 ${critical ? "animate-led text-destructive" : "text-warning"}`} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="num text-sm font-semibold">Maintenance access · {conflict.blockId}</span>
+              <span className="text-sm font-semibold">Maintenance request</span>
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                   critical
@@ -64,10 +64,10 @@ export function DecisionPanel({
               >
                 {conflict.severity}
               </span>
-              <span className="num ml-auto text-[10px] text-muted-foreground">Review in {conflict.etaMinutes}m</span>
+              <span className="ml-auto text-[10px] text-muted-foreground">Saved scenario</span>
             </div>
             <p className="num mt-1 text-xs text-foreground/90">
-              Operating impact at section {conflict.sector}
+              How this work fits around scheduled trains
             </p>
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{conflict.description}</p>
           </div>
@@ -81,7 +81,7 @@ export function DecisionPanel({
         >
           <CircuitBoard className="size-4 text-success" />
           <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Proposed operating plan
+            Suggested plan
           </span>
           <span className="num ml-auto rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">
             Confidence: {(recommendation.confidence * 100).toFixed(0)}%
@@ -89,7 +89,7 @@ export function DecisionPanel({
         </button>
 
         <p className="mt-2 text-sm font-medium">{recommendation.strategy}</p>
-        <p className="mt-1 text-xs text-muted-foreground">This plan creates a safe maintenance access window while protecting train operations.</p>
+        <p className="mt-1 text-xs text-muted-foreground">This suggestion uses a gap in the saved timetable and the work's safety requirements.</p>
 
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
@@ -99,9 +99,9 @@ export function DecisionPanel({
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Metric label="Delay avoided" value={`${recommendation.delaySavedMinutes.toFixed(1)}m`} tone="text-success" />
-          <Metric label="Availability" value={`+${recommendation.throughputDeltaPct.toFixed(1)}%`} tone="text-suburban" />
-          <Metric label="Plan time" value={`${recommendation.computeMs}ms`} tone="text-muted-foreground" />
+          <Metric label="Estimated delay avoided" value={`${recommendation.delaySavedMinutes.toFixed(1)}m`} tone="text-success" />
+          <Metric label="Extra timetable space" value={`+${recommendation.throughputDeltaPct.toFixed(1)}%`} tone="text-suburban" />
+          <Metric label="Planning time" value={`${recommendation.computeMs}ms`} tone="text-muted-foreground" />
         </div>
 
         {expanded && (
@@ -128,7 +128,7 @@ export function DecisionPanel({
           <div className="mt-4 flex w-full flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
             <input
               type="text"
-              placeholder="Enter justification for rejection..."
+              placeholder="Why does this suggested time not work?"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
@@ -143,7 +143,7 @@ export function DecisionPanel({
                 disabled={!rejectReason.trim()}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Confirm Reject
+                Record rejection
               </Button>
               <Button variant="ghost" onClick={() => setRejectMode(false)} className="text-muted-foreground">
                 Cancel
@@ -165,19 +165,19 @@ export function DecisionPanel({
                   <CheckCircle2 className="size-4" /> Plan Applied
                 </>
               ) : approving === "working" ? (
-                "Applying…"
+                "Recording…"
               ) : (
-                "Approve access plan"
+                "Accept suggested plan"
               )}
             </Button>
             <Button variant="outline" onClick={() => setRejectMode(true)} className="border-destructive/50 text-destructive hover:bg-destructive/10">
-              Reject
+              Reject suggestion
             </Button>
             <Button variant="outline" onClick={onOverride} className="border-warning/50 text-warning hover:bg-warning/10">
-              <SlidersHorizontal className="size-4" /> Override
+              <SlidersHorizontal className="size-4" /> Adjust manually
             </Button>
             <Button variant="ghost" onClick={onSimulate} className="text-muted-foreground">
-              <FlaskConical className="size-4" /> Simulate
+              <FlaskConical className="size-4" /> Check impact
             </Button>
           </div>
         )}

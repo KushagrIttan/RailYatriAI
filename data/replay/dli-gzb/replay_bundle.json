@@ -1,0 +1,58 @@
+{
+  "replay_context": {
+    "schema_version": "1.0",
+    "data_mode": "replay",
+    "corridor_id": "DLI-GZB",
+    "corridor_label": "Delhi Junction to Ghaziabad Junction",
+    "planning_start": "2026-09-06T08:00:00+05:30",
+    "planning_end": "2026-09-06T15:00:00+05:30",
+    "captured_at": "2026-09-06T12:00:00+05:30",
+    "source_system": "public_timetable_snapshot",
+    "source_note": "Saved timetable scenario for a hackathon prototype; not a live railway control feed."
+  },
+  "corridor": {
+    "section_id": "DLI-GZB-DN",
+    "from_station": { "code": "DLI", "name": "Delhi Junction", "latitude": 28.6600, "longitude": 77.2270 },
+    "to_station": { "code": "GZB", "name": "Ghaziabad Junction", "latitude": 28.7110, "longitude": 77.4330 },
+    "length_km": 20.4,
+    "direction": "DLI_TO_GZB",
+    "geometry_source": "OpenStreetMap-compatible station reference"
+  },
+  "train_movements": [
+    {
+      "id": "svc-64152-20260906", "train_number": "64152", "train_name": "Delhi - Aligarh MEMU", "train_class": "MEMU",
+      "section_id": "DLI-GZB-DN", "direction": "DLI_TO_GZB", "scheduled_entry": "2026-09-06T08:30:00+05:30", "scheduled_exit": "2026-09-06T09:09:00+05:30",
+      "source_system": "public_timetable_snapshot", "source_record_id": "indiarailinfo:dli-gzb:64152", "confidence": "third_party"
+    },
+    {
+      "id": "svc-64414-20260906", "train_number": "64414", "train_name": "Delhi - Ghaziabad EMU", "train_class": "EMU",
+      "section_id": "DLI-GZB-DN", "direction": "DLI_TO_GZB", "scheduled_entry": "2026-09-06T08:40:00+05:30", "scheduled_exit": "2026-09-06T09:25:00+05:30",
+      "source_system": "public_timetable_snapshot", "source_record_id": "indiarailinfo:dli-gzb:64414", "confidence": "third_party"
+    },
+    {
+      "id": "svc-64404-20260906", "train_number": "64404", "train_name": "Delhi - Ghaziabad EMU", "train_class": "EMU",
+      "section_id": "DLI-GZB-DN", "direction": "DLI_TO_GZB", "scheduled_entry": "2026-09-06T09:50:00+05:30", "scheduled_exit": "2026-09-06T10:35:00+05:30",
+      "source_system": "public_timetable_snapshot", "source_record_id": "railradar:64404", "confidence": "third_party"
+    },
+    {
+      "id": "svc-04942-20260906", "train_number": "04942", "train_name": "Delhi - Ghaziabad EMU Special", "train_class": "EMU",
+      "section_id": "DLI-GZB-DN", "direction": "DLI_TO_GZB", "scheduled_entry": "2026-09-06T10:10:00+05:30", "scheduled_exit": "2026-09-06T10:55:00+05:30",
+      "source_system": "public_timetable_snapshot", "source_record_id": "indiarailinfo:04942", "confidence": "third_party"
+    },
+    {
+      "id": "svc-14521-20260906", "train_number": "14521", "train_name": "Ambala Cantt. Intercity Express", "train_class": "Express",
+      "section_id": "DLI-GZB-DN", "direction": "DLI_TO_GZB", "scheduled_entry": "2026-09-06T13:10:00+05:30", "scheduled_exit": "2026-09-06T14:02:00+05:30",
+      "source_system": "public_timetable_snapshot", "source_record_id": "railradar:14521", "confidence": "third_party"
+    }
+  ],
+  "procedure_profiles": [
+    { "id": "track-planned-v1", "traffic_block_required": true, "power_block_required": false, "disconnection_notice_required": false, "permit_to_work_required": false, "minimum_setup_minutes": 15, "minimum_clearance_minutes": 15 },
+    { "id": "signal-failure-v1", "traffic_block_required": true, "power_block_required": false, "disconnection_notice_required": true, "permit_to_work_required": false, "minimum_setup_minutes": 10, "minimum_clearance_minutes": 10 },
+    { "id": "ohe-emergency-v1", "traffic_block_required": true, "power_block_required": true, "disconnection_notice_required": false, "permit_to_work_required": true, "minimum_setup_minutes": 15, "minimum_clearance_minutes": 15 }
+  ],
+  "maintenance_cases": [
+    { "case_id": "CASE-TRACK-001", "scenario_type": "planned_track", "department": "Engineering", "asset_type": "Track", "description": "Planned rail grinding", "section_id": "DLI-GZB-DN", "location_reference": "KM 8.0-9.0", "reported_at": "2026-09-06T08:00:00+05:30", "urgency": "planned", "estimated_work_minutes": 60, "required_resources": ["Rail grinding machine", "Engineering crew"], "procedure_profile_id": "track-planned-v1" },
+    { "case_id": "CASE-SIGNAL-001", "scenario_type": "signal_failure", "department": "Signal & Telecommunication", "asset_type": "Point machine", "description": "Point machine failure requiring inspection, repair and test", "section_id": "DLI-GZB-DN", "location_reference": "Sahibabad approach (SBB)", "reported_at": "2026-09-06T09:30:00+05:30", "urgency": "urgent", "estimated_work_minutes": 45, "required_resources": ["Signalling technician", "Point machine test kit"], "procedure_profile_id": "signal-failure-v1" },
+    { "case_id": "CASE-OHE-001", "scenario_type": "ohe_failure", "department": "Traction Distribution", "asset_type": "Overhead electric line contact wire", "description": "Overhead electric line contact-wire defect requiring electrical isolation and formal safety clearance", "section_id": "DLI-GZB-DN", "location_reference": "KM 14.0", "reported_at": "2026-09-06T11:00:00+05:30", "urgency": "emergency", "estimated_work_minutes": 45, "required_resources": ["Overhead electric line crew", "Insulation tester"], "procedure_profile_id": "ohe-emergency-v1" }
+  ]
+}

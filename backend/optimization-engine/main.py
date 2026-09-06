@@ -107,6 +107,58 @@ class OptimizationRequest(BaseModel):
     tasks: List[MaintenanceTask]
     corridor_windows: List[CorridorWindow]
 
+class ReplayContext(BaseModel):
+    data_mode: str
+    corridor_id: str
+    corridor_label: str
+    planning_start: datetime
+    planning_end: datetime
+    captured_at: datetime
+    source_system: str
+    source_note: str
+
+class TrainMovement(BaseModel):
+    id: str
+    train_number: str
+    train_name: str
+    train_class: str
+    section_id: str
+    direction: str
+    scheduled_entry: datetime
+    scheduled_exit: datetime
+    source_system: str
+    source_record_id: str
+    confidence: str
+
+class ProcedureProfile(BaseModel):
+    id: str
+    traffic_block_required: bool
+    power_block_required: bool
+    disconnection_notice_required: bool
+    permit_to_work_required: bool
+    minimum_setup_minutes: int
+    minimum_clearance_minutes: int
+
+class MaintenanceCase(BaseModel):
+    case_id: str
+    scenario_type: str
+    department: str
+    asset_type: str
+    description: str
+    section_id: str
+    location_reference: str
+    reported_at: datetime
+    urgency: str
+    estimated_work_minutes: int
+    required_resources: List[str]
+    procedure_profile_id: str
+
+class ReplayOptimizationRequest(BaseModel):
+    replay_context: ReplayContext
+    train_movements: List[TrainMovement]
+    procedure_profiles: List[ProcedureProfile]
+    maintenance_cases: List[MaintenanceCase]
+
 # ============= PRIORITIZATION ENGINE =============
 
 class PrioritizationEngine:
@@ -327,6 +379,176 @@ def _load_data_from_files() -> OptimizationRequest:
     return OptimizationRequest(tasks=tasks, corridor_windows=windows)
 
 
+def _replay_priority(case: MaintenanceCase) -> int:
+    return {"emergency": 0, "urgent": 1, "planned": 2}.get(case.urgency, 3)
+
+
+def _derive_replay_gaps(request: ReplayOptimizationRequest) -> List[dict]:
+    """Return timetable gaps after applying a deterministic 15-minute headway."""
+    start, end = request.replay_context.planning_start, request.replay_context.planning_end
+    occupied = []
+    for movement in request.train_movements:
+        entry = max(start, movement.scheduled_entry - timedelta(minutes=15))
+        exit = min(end, movement.scheduled_exit + timedelta(minutes=15))
+        if entry < exit:
+            occupied.append((entry, exit, movement.id))
+    occupied.sort(key=lambda item: item[0])
+    merged = []
+    for entry, exit, movement_id in occupied:
+        if merged and entry <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], exit), merged[-1][2] + [movement_id])
+        else:
+            merged.append((entry, exit, [movement_id]))
+    gaps, cursor, previous_movement_ids = [], start, []
+    for entry, exit, movement_ids in merged:
+        if cursor < entry:
+            gaps.append({
+                "start": cursor,
+                "end": entry,
+                "occupied_by_train_ids": previous_movement_ids + movement_ids,
+            })
+        cursor = max(cursor, exit)
+        previous_movement_ids = movement_ids
+    if cursor < end:
+        gaps.append({
+            "start": cursor,
+            "end": end,
+            "occupied_by_train_ids": previous_movement_ids,
+        })
+    return gaps
+
+
+def optimize_replay(request: ReplayOptimizationRequest) -> OptimizationResult:
+    """Schedule procedure-driven cases into gaps derived from a frozen timetable."""
+    profiles = {profile.id: profile for profile in request.procedure_profiles}
+    gaps = _derive_replay_gaps(request)
+    used = []
+    schedule = []
+    scheduled_count = 0
+
+    for case in sorted(request.maintenance_cases, key=_replay_priority):
+        profile = profiles.get(case.procedure_profile_id)
+        if profile is None:
+            raise HTTPException(status_code=422, detail=f"Unknown procedure profile: {case.procedure_profile_id}")
+        required = case.estimated_work_minutes + profile.minimum_setup_minutes + profile.minimum_clearance_minutes
+        chosen = None
+        for gap in gaps:
+            candidate_start = max(gap["start"], case.reported_at)
+            candidate_end = candidate_start + timedelta(minutes=required)
+            overlaps_reserved = any(candidate_start < end and candidate_end > start for start, end in used)
+            if candidate_end <= gap["end"] and not overlaps_reserved:
+                chosen = (candidate_start, candidate_end)
+                break
+
+        priority = {"emergency": "Critical", "urgent": "High", "planned": "Medium"}.get(case.urgency, "Low")
+        if chosen:
+            access = []
+            if profile.traffic_block_required: access.append("temporary track closure")
+            if profile.power_block_required: access.append("electrical isolation")
+            if profile.disconnection_notice_required: access.append("equipment disconnection notice")
+            if profile.permit_to_work_required: access.append("formal safety clearance")
+            work_start = chosen[0] + timedelta(minutes=profile.minimum_setup_minutes)
+            work_end = work_start + timedelta(minutes=case.estimated_work_minutes)
+            schedule.append(ScheduledBlock(
+                block_id=f"RPL-{case.case_id}", task_id=case.case_id, department=case.department,
+                track_section=case.section_id, location_km=case.location_reference,
+                scheduled_start=work_start, scheduled_end=work_end,
+                duration_minutes=case.estimated_work_minutes, priority=priority,
+                criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
+                window_id=f"GAP-{chosen[0].strftime('%H%M')}", status=ScheduleStatus.SCHEDULED,
+                conflict_reason=f"Safety requirements: {', '.join(access)}."
+            ))
+            used.append(chosen)
+            scheduled_count += 1
+        else:
+            schedule.append(ScheduledBlock(
+                block_id=f"RPL-{case.case_id}-DEFERRED", task_id=case.case_id, department=case.department,
+                track_section=case.section_id, location_km=case.location_reference,
+                scheduled_start=datetime.min, scheduled_end=datetime.min,
+                duration_minutes=case.estimated_work_minutes, priority=priority,
+                criticality_score={"emergency": .95, "urgent": .8, "planned": .5}.get(case.urgency, .3),
+                window_id="NONE", status=ScheduleStatus.DEFERRED,
+                conflict_reason="No safe gap in the saved timetable is long enough for this work."
+            ))
+
+    return OptimizationResult(
+        total_tasks=len(request.maintenance_cases), scheduled_tasks=scheduled_count,
+        shadow_blocks=0, conflicts_detected=len(request.maintenance_cases) - scheduled_count,
+        asset_availability_gain=0.0, schedule=schedule
+    )
+
+
+def _camel_case_block(block: ScheduledBlock) -> dict:
+    return {
+        "blockId": block.block_id, "taskId": block.task_id, "department": block.department,
+        "trackSection": block.track_section, "locationKm": block.location_km,
+        "scheduledStart": block.scheduled_start.isoformat(), "scheduledEnd": block.scheduled_end.isoformat(),
+        "durationMinutes": block.duration_minutes, "priority": block.priority,
+        "criticalityScore": block.criticality_score, "windowId": block.window_id,
+        "status": block.status.value, "shadowBlockGroup": block.shadow_block_group,
+        "conflictReason": block.conflict_reason,
+    }
+
+
+def _replay_response(request: ReplayOptimizationRequest, result: OptimizationResult) -> dict:
+    profiles = {profile.id: profile for profile in request.procedure_profiles}
+    cases = {case.case_id: case for case in request.maintenance_cases}
+    recommendations = []
+    for block in result.schedule:
+        case = cases[block.task_id]
+        profile = profiles[case.procedure_profile_id]
+        is_scheduled = block.status != ScheduleStatus.DEFERRED
+        requirements = []
+        if profile.traffic_block_required: requirements.append("temporary track closure")
+        if profile.power_block_required: requirements.append("electrical isolation")
+        if profile.disconnection_notice_required: requirements.append("equipment disconnection notice")
+        if profile.permit_to_work_required: requirements.append("formal safety clearance")
+        recommendations.append({
+            "id": f"REC-{case.case_id}", "conflictId": f"case-{case.case_id}",
+            "strategy": f"Use the first suitable gap in the saved timetable for {case.description}" if is_scheduled else "No safe maintenance time is available in this saved timetable",
+            "confidence": 0.82 if is_scheduled else 0.25, "delaySavedMinutes": 0.0,
+            "throughputDeltaPct": 0.0, "computeMs": 1,
+            "steps": [
+                {"trainNumber": "Saved timetable", "action": "Keep clear", "detail": "Keep the selected gap clear of scheduled trains, including its safety buffer."},
+                {"trainNumber": "Safety checks", "action": "Confirm", "detail": f"This work needs: {', '.join(requirements)}."},
+                {"trainNumber": "After the work", "action": "Test and restore", "detail": "Test the asset and close the simulated maintenance record."},
+            ],
+        })
+
+    gaps = _derive_replay_gaps(request)
+    window_candidates = [{
+        "id": f"GAP-{gap['start'].strftime('%H%M')}",
+        "sectionId": request.train_movements[0].section_id if request.train_movements else "unknown",
+        "start": gap["start"].isoformat(), "end": gap["end"].isoformat(),
+        "usableMinutes": int((gap["end"] - gap["start"]).total_seconds() / 60),
+        "headwayBufferMinutes": 15, "occupiedByTrainIds": gap["occupied_by_train_ids"],
+    } for gap in gaps]
+
+    return {
+        "mode": "replay",
+        "replayContext": {
+            "corridorId": request.replay_context.corridor_id,
+            "corridorLabel": request.replay_context.corridor_label,
+            "planningStart": request.replay_context.planning_start.isoformat(),
+            "planningEnd": request.replay_context.planning_end.isoformat(),
+            "capturedAt": request.replay_context.captured_at.isoformat(),
+            "sourceSystem": request.replay_context.source_system,
+            "sourceNote": request.replay_context.source_note,
+        },
+        "trainMovements": [{
+            "id": movement.id, "number": movement.train_number, "name": movement.train_name,
+            "trainClass": movement.train_class, "sectionId": movement.section_id,
+            "direction": movement.direction, "scheduledEntry": movement.scheduled_entry.isoformat(),
+            "scheduledExit": movement.scheduled_exit.isoformat(),
+        } for movement in request.train_movements],
+        "windowCandidates": window_candidates,
+        "totalTasks": result.total_tasks, "scheduledTasks": result.scheduled_tasks,
+        "conflictsDetected": result.conflicts_detected,
+        "schedule": [_camel_case_block(block) for block in result.schedule],
+        "recommendations": recommendations,
+    }
+
+
 # ============= API ENDPOINTS =============
 
 @app.get("/health")
@@ -365,6 +587,16 @@ async def optimize_schedule(request: OptimizationRequest):
         result.asset_availability_gain,
     )
     return result
+
+
+@app.post("/replay/optimize")
+async def optimize_replay_schedule(request: ReplayOptimizationRequest):
+    """Run an offline, procedure-driven plan from a frozen public timetable snapshot."""
+    if request.replay_context.data_mode != "replay":
+        raise HTTPException(status_code=422, detail="Replay optimization requires data_mode='replay'.")
+    if not request.train_movements or not request.maintenance_cases:
+        raise HTTPException(status_code=400, detail="Replay requires train movements and maintenance cases.")
+    return _replay_response(request, optimize_replay(request))
 
 
 @app.get("/data-optimize", response_model=OptimizationResult)

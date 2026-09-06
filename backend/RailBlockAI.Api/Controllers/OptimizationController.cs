@@ -13,68 +13,40 @@ public class OptimizationController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<OptimizationController> _logger;
+    private readonly IReplayBundleService _replayBundleService;
 
-    public OptimizationController(IHttpClientFactory httpClientFactory, ILogger<OptimizationController> logger)
+    public OptimizationController(
+        IHttpClientFactory httpClientFactory,
+        ILogger<OptimizationController> logger,
+        IReplayBundleService replayBundleService)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _replayBundleService = replayBundleService;
     }
 
     [HttpPost("generate")]
     public async Task<IActionResult> GenerateOptimizedSchedule()
     {
-        _logger.LogInformation("=== Optimization Request Received ===");
-
-        // Guard: DataStore must be populated (seeded on startup)
-        if (DataStore.MaintenanceTasks.Length == 0 || DataStore.CorridorWindows.Length == 0)
-        {
-            _logger.LogError("DataStore is empty — data seeding may have failed at startup.");
-            return StatusCode(503, "DataStore is not populated. Check that the data/ JSON files exist and the seeder ran successfully on startup.");
-        }
-
-        _logger.LogInformation(
-            "Step 1/3 — DataStore has {Tasks} maintenance tasks and {Windows} corridor windows",
-            DataStore.MaintenanceTasks.Length, DataStore.CorridorWindows.Length);
+        _logger.LogInformation("=== Replay optimization request received ===");
 
         try
         {
-            // Step 1: Build the payload from DataStore (same logic as GET /data)
-            var tasks = DataStore.MaintenanceTasks.Select(t => new {
-                task_id          = t.TaskId,
-                department       = t.Department,
-                task_type        = t.TaskType,
-                description      = t.Description,
-                track_section    = t.TrackSection,
-                location_km      = t.LocationKm,
-                duration_minutes = t.DurationMinutes,
-                required_resources = t.RequiredResources,
-                priority         = t.Priority,
-                criticality_score = t.CriticalityScore,
-                dependencies     = t.Dependencies,
-                requested_by     = t.RequestedBy,
-                requested_date   = t.RequestedDate
-            }).ToList();
-
-            var windows = DataStore.CorridorWindows.Select(w => new {
-                window_id        = w.WindowId,
-                track_section    = w.TrackSection,
-                available_start  = w.AvailableStart,
-                available_end    = w.AvailableEnd,
-                duration_minutes = w.DurationMinutes,
-                window_type      = w.WindowType,
-                constraints      = w.Constraints
-            }).ToList();
-
-            // Step 2: POST to Python optimization engine
+            using var replayBundle = await _replayBundleService.LoadAsync(HttpContext.RequestAborted);
+            var context = replayBundle.RootElement.GetProperty("replay_context");
             _logger.LogInformation(
-                "Step 2/3 — Sending {Tasks} tasks + {Windows} windows to Python engine at http://localhost:8000/optimize",
-                tasks.Count, windows.Count);
+                "Using frozen replay bundle for {Corridor}, captured {CapturedAt}",
+                context.GetProperty("corridor_id").GetString(),
+                context.GetProperty("captured_at").GetString());
 
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(30);
 
-            var requestBody = new { tasks, corridor_windows = windows };
-            var response = await client.PostAsJsonAsync("http://localhost:8000/optimize", requestBody);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:8000/replay/optimize")
+            {
+                Content = new StringContent(replayBundle.RootElement.GetRawText(), System.Text.Encoding.UTF8, "application/json")
+            };
+            var response = await client.SendAsync(request, HttpContext.RequestAborted);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -85,28 +57,15 @@ public class OptimizationController : ControllerBase
                     $"Python optimization engine returned an error ({(int)response.StatusCode}): {errorContent}");
             }
 
-            // Step 3: Deserialize and cache the result
-            var jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-            };
-            var result = await response.Content.ReadFromJsonAsync<OptimizationResult>(jsonOptions);
-
-            if (result == null)
-            {
-                _logger.LogError("Step 3/3 FAILED — Could not deserialize OptimizationResult from Python response.");
-                return BadRequest("Received a successful response from Python but failed to deserialize the result.");
-            }
-
-            DataStore.LastOptimizedSchedule = result;
-
-            _logger.LogInformation(
-                "Step 3/3 — Optimization complete: {Scheduled}/{Total} tasks scheduled, {Shadow} shadow blocks, {Conflicts} conflicts, {Gain}% availability gain",
-                result.ScheduledTasks, result.TotalTasks, result.ShadowBlocks, result.ConflictsDetected, result.AssetAvailabilityGain);
-            _logger.LogInformation("=== Optimization Complete ===");
-
-            return Ok(result);
+            var resultJson = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            DataStore.LastOptimizedSchedule = resultJson;
+            _logger.LogInformation("Replay optimization complete.");
+            return Content(resultJson, "application/json");
+        }
+        catch (FileNotFoundException ex)
+        {
+            _logger.LogError(ex, "Replay bundle is missing.");
+            return StatusCode(503, "Replay bundle is unavailable. Restore data/replay/dli-gzb/replay_bundle.json.");
         }
         catch (HttpRequestException ex)
         {

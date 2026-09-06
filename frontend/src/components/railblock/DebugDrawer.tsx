@@ -1,5 +1,4 @@
 import { ChevronDown, Code2 } from "lucide-react";
-import { SCHEDULE_ENDPOINT } from "@/lib/railblock/service";
 import type { OptimizationSchedule } from "@/lib/railblock/types";
 
 export function DebugDrawer({
@@ -19,11 +18,11 @@ export function DebugDrawer({
       >
         <Code2 className="size-4 text-suburban" />
         <span className="num text-[11px] font-medium text-foreground/90">
-          GET {SCHEDULE_ENDPOINT}
+          Technical details
         </span>
-        <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">200 OK</span>
+        <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">For development</span>
         <span className="ml-auto text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-          Diagnostics & raw plan data
+          Raw data and diagnostics
         </span>
         <ChevronDown className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
