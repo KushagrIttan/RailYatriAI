@@ -5,6 +5,7 @@ import { TrackView } from "@/components/railblock/TrackView";
 import { DecisionPanel } from "@/components/railblock/DecisionPanel";
 import { LogStream } from "@/components/railblock/LogStream";
 import { DebugDrawer } from "@/components/railblock/DebugDrawer";
+import { WorkQueue } from "@/components/railblock/WorkQueue";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -28,6 +29,7 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [windowOffset, setWindowOffset] = useState(20);
   const [selectedTrain, setSelectedTrain] = useState<string | null>(null);
+  const [selectedConflictId, setSelectedConflictId] = useState<string | null>(null);
   const [approving, setApproving] = useState<"idle" | "working" | "done">("idle");
   const [simulation, setSimulation] = useState<string | null>(null);
   const [debugOpen, setDebugOpen] = useState(false);
@@ -40,6 +42,7 @@ export default function App() {
     let cancelled = false;
     setApproving("idle");
     setSimulation(null);
+    setSelectedConflictId(null);
     fetchOptimizationSchedule(corridorId).then((data) => {
       if (cancelled) return;
       setSchedule(data);
@@ -64,7 +67,10 @@ export default function App() {
     [corridorId],
   );
 
-  const activeConflict = schedule?.conflicts.find((c) => !c.resolved) ?? null;
+  const activeConflict =
+    schedule?.conflicts.find((c) => c.id === selectedConflictId && !c.resolved) ??
+    schedule?.conflicts.find((c) => !c.resolved) ??
+    null;
   const activeRecommendation =
     schedule?.recommendations.find((r) => r.conflictId === activeConflict?.id) ?? null;
 
@@ -166,9 +172,8 @@ export default function App() {
         }
       />
 
-      <main className="grid flex-1 gap-4 px-5 py-4 lg:grid-cols-5">
-        {/* Left: track view */}
-        <section className="space-y-3 lg:col-span-3">
+      <main className="grid flex-1 gap-4 px-5 py-4 xl:grid-cols-[18rem_minmax(0,1fr)_25rem]">
+        <section className="space-y-3 xl:col-start-2">
           <div className="panel-surface flex flex-wrap items-center gap-4 px-4 py-3">
             <Select value={corridorId} onValueChange={setCorridorId}>
               <SelectTrigger className="w-[15rem] bg-background/60">
@@ -193,7 +198,7 @@ export default function App() {
               }}
               className="h-9 border-suburban/30 bg-suburban/10 text-suburban hover:bg-suburban/20"
             >
-              Demo Mode
+              Load sample plan
             </Button>
 
             <div className="flex min-w-56 flex-1 items-center gap-3">
@@ -221,8 +226,16 @@ export default function App() {
           />
         </section>
 
-        {/* Right: decision panel */}
-        <section className="flex min-h-0 flex-col gap-3 lg:col-span-2 lg:max-h-[calc(100vh-16rem)]">
+        <section className="xl:col-start-1 xl:row-start-1">
+          <WorkQueue
+            conflicts={schedule?.conflicts ?? []}
+            recommendations={schedule?.recommendations ?? []}
+            selectedId={activeConflict?.id ?? null}
+            onSelect={setSelectedConflictId}
+          />
+        </section>
+
+        <section className="flex min-h-0 flex-col gap-3 xl:col-start-3 xl:row-start-1 xl:max-h-[calc(100vh-15rem)]">
           <DecisionPanel
             conflict={activeConflict}
             recommendation={activeRecommendation}

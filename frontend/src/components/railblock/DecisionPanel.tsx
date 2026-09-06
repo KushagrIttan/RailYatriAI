@@ -8,6 +8,7 @@ export function DecisionPanel({
   recommendation,
   approving,
   onApprove,
+  onReject,
   onOverride,
   onSimulate,
   simulation,
@@ -29,9 +30,9 @@ export function DecisionPanel({
     return (
       <div className="panel-surface flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
         <ShieldCheck className="size-8 text-success" />
-        <p className="text-sm font-medium">All corridors clear</p>
+        <p className="text-sm font-medium">All maintenance windows reviewed</p>
         <p className="text-xs text-muted-foreground">
-          No spatial-temporal conflicts in the current projection window.
+          No access windows need an operating decision in this projection.
         </p>
       </div>
     );
@@ -53,7 +54,7 @@ export function DecisionPanel({
           <AlertOctagon className={`mt-0.5 size-4 ${critical ? "animate-led text-destructive" : "text-warning"}`} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="num text-sm font-semibold">{conflict.code}</span>
+              <span className="num text-sm font-semibold">Maintenance access · {conflict.blockId}</span>
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                   critical
@@ -63,12 +64,10 @@ export function DecisionPanel({
               >
                 {conflict.severity}
               </span>
-              <span className="num ml-auto text-[10px] text-muted-foreground">
-                T-{conflict.etaMinutes}m · {conflict.detectedAt}
-              </span>
+              <span className="num ml-auto text-[10px] text-muted-foreground">Review in {conflict.etaMinutes}m</span>
             </div>
             <p className="num mt-1 text-xs text-foreground/90">
-              Train {conflict.trainA} vs Freight {conflict.trainB} at Block {conflict.blockId}
+              Operating impact at section {conflict.sector}
             </p>
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{conflict.description}</p>
           </div>
@@ -82,7 +81,7 @@ export function DecisionPanel({
         >
           <CircuitBoard className="size-4 text-success" />
           <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            AI Recommendation Engine
+            Proposed operating plan
           </span>
           <span className="num ml-auto rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">
             Confidence: {(recommendation.confidence * 100).toFixed(0)}%
@@ -90,6 +89,7 @@ export function DecisionPanel({
         </button>
 
         <p className="mt-2 text-sm font-medium">{recommendation.strategy}</p>
+        <p className="mt-1 text-xs text-muted-foreground">This plan creates a safe maintenance access window while protecting train operations.</p>
 
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
@@ -99,9 +99,9 @@ export function DecisionPanel({
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Metric label="Delay saved" value={`${recommendation.delaySavedMinutes.toFixed(1)}m`} tone="text-success" />
-          <Metric label="Throughput" value={`+${recommendation.throughputDeltaPct.toFixed(1)}%`} tone="text-suburban" />
-          <Metric label="Solve time" value={`${recommendation.computeMs}ms`} tone="text-muted-foreground" />
+          <Metric label="Delay avoided" value={`${recommendation.delaySavedMinutes.toFixed(1)}m`} tone="text-success" />
+          <Metric label="Availability" value={`+${recommendation.throughputDeltaPct.toFixed(1)}%`} tone="text-suburban" />
+          <Metric label="Plan time" value={`${recommendation.computeMs}ms`} tone="text-muted-foreground" />
         </div>
 
         {expanded && (
@@ -167,7 +167,7 @@ export function DecisionPanel({
               ) : approving === "working" ? (
                 "Applying…"
               ) : (
-                "Approve AI Plan"
+                "Approve access plan"
               )}
             </Button>
             <Button variant="outline" onClick={() => setRejectMode(true)} className="border-destructive/50 text-destructive hover:bg-destructive/10">

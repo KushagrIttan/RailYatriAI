@@ -23,7 +23,7 @@ export function DebugDrawer({
         </span>
         <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">200 OK</span>
         <span className="ml-auto text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-          Raw payload inspector
+          Diagnostics & raw plan data
         </span>
         <ChevronDown className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>

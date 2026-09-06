@@ -1,6 +1,15 @@
 """
 RailBlock AI - Optimization Engine
 The "Brain" that schedules maintenance tasks into corridor windows.
+
+Data flow (primary):
+  .NET API (port 5053) seeds data from JSON files at startup.
+  This engine calls GET http://localhost:5053/api/optimization/data
+  to retrieve {tasks, corridor_windows}, then runs the scheduling algorithm.
+
+Data flow (fallback):
+  If .NET is unreachable, /data-optimize falls back to reading the JSON files
+  directly from the data/ directory.
 """
 
 from fastapi import FastAPI, HTTPException
@@ -8,10 +17,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, timedelta
+import httpx
 import json
 import os
+import logging
 from enum import Enum
 from collections import defaultdict
+
+logger = logging.getLogger("railblock")
+
+# URL of the .NET API data endpoint
+DOTNET_API_BASE = os.environ.get("DOTNET_API_BASE", "http://localhost:5053")
+DOTNET_DATA_URL  = f"{DOTNET_API_BASE}/api/optimization/data"
 
 app = FastAPI(title="RailBlock AI - Optimization Engine")
 
@@ -250,21 +267,148 @@ class SchedulingEngine:
         shadow_time_saved = sum(b.duration_minutes for b in shadow_blocks) * 0.5
         return min(((total_scheduled_time + shadow_time_saved) / 20160.0) * 100, 25.0)
 
+# ============= HELPERS =============
+
+async def _fetch_data_from_dotnet() -> OptimizationRequest:
+    """
+    Pull tasks + corridor windows from the .NET API.
+    Raises HTTPException(503) if the .NET API is unreachable.
+    """
+    logger.info("Fetching optimization data from .NET API: %s", DOTNET_DATA_URL)
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(DOTNET_DATA_URL)
+            response.raise_for_status()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Cannot connect to the .NET API at {DOTNET_API_BASE}. "
+                "Start it with: cd backend/RailBlockAI.Api && dotnet run"
+            )
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Request to .NET API timed out after 15 seconds.")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f".NET API returned an error: {e.response.text}"
+        )
+
+    payload = response.json()
+    tasks   = [MaintenanceTask(**t)   for t in payload["tasks"]]
+    windows = [CorridorWindow(**w)    for w in payload["corridor_windows"]]
+    logger.info("Received %d tasks and %d corridor windows from .NET", len(tasks), len(windows))
+    return OptimizationRequest(tasks=tasks, corridor_windows=windows)
+
+
+def _load_data_from_files() -> OptimizationRequest:
+    """
+    Fallback: read maintenance_tasks.json and corridor_windows.json directly from data/.
+    Used when the .NET API is not running.
+    """
+    data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
+    tasks_path   = os.path.join(data_dir, "maintenance_tasks.json")
+    windows_path = os.path.join(data_dir, "corridor_windows.json")
+
+    for path in (tasks_path, windows_path):
+        if not os.path.exists(path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Data file not found: {path}. Run data-generator/generate_data.py first."
+            )
+
+    with open(tasks_path)   as f: raw_tasks   = json.load(f)
+    with open(windows_path) as f: raw_windows = json.load(f)
+
+    tasks   = [MaintenanceTask(**t) for t in raw_tasks]
+    windows = [CorridorWindow(**w)  for w in raw_windows]
+    logger.info("Loaded %d tasks and %d corridor windows from JSON files", len(tasks), len(windows))
+    return OptimizationRequest(tasks=tasks, corridor_windows=windows)
+
+
 # ============= API ENDPOINTS =============
+
+@app.get("/health")
+async def health():
+    """Liveness check. Also reports whether the .NET API is reachable."""
+    dotnet_status = "unknown"
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(f"{DOTNET_API_BASE}/api/optimization/data")
+            dotnet_status = "reachable" if r.is_success else f"error ({r.status_code})"
+    except Exception:
+        dotnet_status = "unreachable"
+    return {
+        "status": "healthy",
+        "engine": "Greedy-Shadow V2",
+        "dotnet_api": dotnet_status,
+        "dotnet_url": DOTNET_DATA_URL,
+    }
+
 
 @app.post("/optimize", response_model=OptimizationResult)
 async def optimize_schedule(request: OptimizationRequest):
+    """
+    Primary endpoint — called by the .NET OptimizationController.
+    .NET sends {tasks, corridor_windows} in the POST body; we run the engine and return the result.
+    """
     if not request.tasks or not request.corridor_windows:
-        raise HTTPException(status_code=400, detail="Missing tasks or windows")
+        raise HTTPException(status_code=400, detail="Request body must contain 'tasks' and 'corridor_windows'.")
+    logger.info("POST /optimize — %d tasks, %d windows", len(request.tasks), len(request.corridor_windows))
     engine = SchedulingEngine(request.tasks, request.corridor_windows)
+    result = engine.optimize()
+    logger.info(
+        "Optimization done: %d/%d scheduled, %d shadow blocks, %d deferred, %.1f%% availability gain",
+        result.scheduled_tasks, result.total_tasks,
+        result.shadow_blocks, result.conflicts_detected,
+        result.asset_availability_gain,
+    )
+    return result
+
+
+@app.get("/data-optimize", response_model=OptimizationResult)
+async def data_optimize():
+    """
+    Convenience endpoint: fetch data from the .NET API, run the engine, return the result.
+    Falls back to reading JSON files directly if the .NET API is unreachable.
+    Useful for quick end-to-end tests without triggering the full .NET → Python bridge.
+    """
+    try:
+        data = await _fetch_data_from_dotnet()
+        source = DOTNET_DATA_URL
+    except HTTPException as e:
+        if e.status_code in (503, 504):
+            logger.warning(".NET API unreachable (%s). Falling back to local JSON files.", e.detail)
+            data   = _load_data_from_files()
+            source = "local JSON files (fallback)"
+        else:
+            raise
+
+    logger.info("Running optimization via /data-optimize (source: %s)", source)
+    engine = SchedulingEngine(data.tasks, data.corridor_windows)
     return engine.optimize()
 
-@app.get("/health")
-async def health(): return {"status": "healthy", "engine": "Greedy-Shadow V2"}
+
+@app.get("/data-optimize-live", response_model=OptimizationResult)
+async def data_optimize_live():
+    """
+    Same as /data-optimize but NEVER falls back to files.
+    Use this to explicitly test that the .NET → Python data bridge is working.
+    Returns 503 if the .NET API is not reachable.
+    """
+    data = await _fetch_data_from_dotnet()   # raises 503 if .NET is down — intentional
+    logger.info("Running optimization via /data-optimize-live (source: .NET API)")
+    engine = SchedulingEngine(data.tasks, data.corridor_windows)
+    return engine.optimize()
+
 
 @app.get("/test-optimize", response_model=OptimizationResult)
 async def test_optimize():
-    """Quick self-test using built-in sample data."""
+    """
+    Self-contained smoke test using three hardcoded tasks and one window.
+    No external dependencies — useful to verify the scheduling logic in isolation.
+    """
     sample_tasks = [
         MaintenanceTask(
             task_id="TSK-TEST-001", department="Engineering", task_type="Preventive Maintenance",
@@ -291,34 +435,16 @@ async def test_optimize():
     sample_windows = [
         CorridorWindow(
             window_id="WIN-TEST-001", track_section="NDLS-GZB-UP",
-            available_start=datetime.now().replace(hour=22, minute=0, second=0),
-            available_end=datetime.now().replace(hour=23, minute=59, second=0) + timedelta(hours=5),
+            available_start=datetime.now().replace(hour=22, minute=0, second=0, microsecond=0),
+            available_end=(datetime.now().replace(hour=22, minute=0, second=0, microsecond=0) + timedelta(hours=7)),
             duration_minutes=420, window_type="Night Block", constraints=[]
         ),
     ]
     engine = SchedulingEngine(sample_tasks, sample_windows)
     return engine.optimize()
 
-@app.get("/data-optimize", response_model=OptimizationResult)
-async def data_optimize():
-    """Run optimization on the project's data/*.json files directly (no .NET bridge needed)."""
-    data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
-    data_dir = os.path.abspath(data_dir)
-    
-    try:
-        with open(os.path.join(data_dir, "maintenance_tasks.json"), "r") as f:
-            raw_tasks = json.load(f)
-        with open(os.path.join(data_dir, "corridor_windows.json"), "r") as f:
-            raw_windows = json.load(f)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=f"Data file not found: {e}")
-    
-    tasks = [MaintenanceTask(**t) for t in raw_tasks]
-    windows = [CorridorWindow(**w) for w in raw_windows]
-    
-    engine = SchedulingEngine(tasks, windows)
-    return engine.optimize()
 
 if __name__ == "__main__":
     import uvicorn
+    logging.basicConfig(level=logging.INFO)
     uvicorn.run(app, host="0.0.0.0", port=8000)
